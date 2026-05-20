@@ -148,6 +148,7 @@ def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
     # facts
     speed_of_light = 299792458 # meters / second
     center_frequency = 2 * pi * speed_of_light / (wavelength * 1e-6)  # radians / second
+    pump_frequency = 2 * center_frequency # radians / second
     wavenumber = 2 * pi / wavelength # radians / micrometers
     time_shift = np.linspace(0, time_limit, 10000) # picoseconds
     path_delay = speed_of_light * time_shift * 1e-6 # micrometers
@@ -180,25 +181,32 @@ def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
             tau_q = path_delay * 1e-6 / speed_of_light  # seconds
             tau_z1 = z1 * 1e-6 / speed_of_light # seconds (delay until reaching first reflectance)
             tau_z2 = z2 * 1e-6 / speed_of_light # seconds (delay until reaching second reflectance)
-            tau_rel = tau_q - tau_z1 # use relative delay to shift it to the right
+            tau_d = tau_z2 - tau_z1
 
             # A0 and A(tau_q) use the same normalized coherence function (gamma(0)=1)
             background_term = np.abs(r1)**2 + np.abs(r2)**2
 
             # Interference term: dips at front (z1) and back (z2) interfaces
             # A(tau-q) = |r1|^2 * s(tau-q) + |r2|^2 * s(tau-q - 2 * tau-d) + 2Re(r1 * r2' * s(tau-q - tau-d) * e^(i * w-p * n * L / c))
-            term1 = np.abs(r1)**2 * coherence_function(tau_rel)
-            term2 = np.abs(r2)**2 * coherence_function(tau_q - tau_z2)
-            interference_term = term1 + term2
+            # tau_d = tau_z2 - tau_z1
+
+            # also, we subtract a tau_z1 from each argument for the rightward shift
+            term1 = np.abs(r1)**2 * coherence_function(tau_q - tau_z1)
+            term2 = np.abs(r2)**2 * coherence_function(tau_q - 2 * tau_d - tau_z1)
+            phase = pump_frequency * refractive_index * sample_length / speed_of_light
+            cross_term = 2 * np.real(r1 * np.conj(r2) * coherence_function(tau_q - tau_d - tau_z1) * np.exp(1j * phase))
+            interference_term = term1 + term2 + cross_term
 
             # R = A0 - A(tau_q), normalized so baseline = 1
             coincidence_rate = (background_term - interference_term) / background_term
             
+            '''fix this
             # create gaussian to represent sample
             sample = sum(
                 weight * np.exp(-((path_delay - pos) ** 2) / 10)
                 for weight, pos in peaks
             )
+            '''
 
             plt.plot(path_delay, coincidence_rate, label='Coincidence Rate')
             fwhm_lines, fwhm_texts = find_fwhm(1.0, peaks, path_delay, coincidence_rate, dips=True)
@@ -260,4 +268,4 @@ z2 = z1 + n * L * 1e6 # micrometers
 sample = lambda w: r1 + r2 * np.exp(1j * 2 * w * n * L / c)
 peaks = [(r1, z1), (r2, z2)] # (reflectance, location)
 
-plot_interferogram('quantum', sample, peaks, 2, 1.3)
+plot_interferogram('quantum', sample, peaks, 2, 2.5)
