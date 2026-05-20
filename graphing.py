@@ -144,9 +144,9 @@ def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
     # facts
     speed_of_light = 299792458 # meters / second
     center_frequency = 2 * pi * speed_of_light / (wavelength * 1e-6)  # radians / second
-    wavenumber = 2 * pi / wavelength # 1 / micrometers
-    time_shift = np.linspace(0, time_limit, 10000) # nanoseconds
-    path_delay = speed_of_light * time_shift * 1e-3 # micrometers
+    wavenumber = 2 * pi / wavelength # radians / micrometers
+    time_shift = np.linspace(0, time_limit, 10000) # picoseconds
+    path_delay = speed_of_light * time_shift * 1e-6 # micrometers
 
     spectral_power_distribution = lambda w: np.exp(-(w ** 2) / (2 * spectral_width ** 2)) # function of frequency (radians / second)
     # Fourier transform from frequency domain to time domain
@@ -173,7 +173,7 @@ def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
             r1 = peaks[0][0]
             r2 = peaks[1][0] if len(peaks) > 1 else 0
                         
-            tau_d = 2 * refractive_index * sample_length / speed_of_light  # seconds
+            tau_d = 2 * refractive_index * sample_length / speed_of_light  # seconds (delay of passing through sample)
             tau_q = path_delay * 1e-6 / speed_of_light  # seconds
             pump_frequency = 2 * center_frequency # radians / second
             
@@ -238,10 +238,10 @@ def delta_function(*peaks):
 r1 = 0.2  # |r1|^2 = 0.04
 r2 = 0.2  # |r2|^2 = 0.04
 n = 1.5   # refractive index
-L = 90   # sample thickness (micrometers)
+L = 90 * 1e-6   # sample thickness (meters)
 c = 299792458 # speed of light in meters/second
 
 sample = lambda w: r1 + r2 * np.exp(1j * 2 * w * n * L / c)
-peaks = [(r1, 180), (r2, 180 + n * L)]  # for labeling purposes
+peaks = [(r1, 180), (r2, 180 + n * L * 1e6)]  # for labeling purposes, in micrometers
 
 plot_interferogram('quantum', sample, peaks, 3.5, 2)
