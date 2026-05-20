@@ -103,7 +103,7 @@ def find_visibility(peaks, path_delay, intensity):
     
     return visibility_texts
 
-def find_fwhm(baseline, peaks, path_delay, intensity):
+def find_fwhm(baseline, peaks, path_delay, intensity, *, dips=False):
     fwhm_texts = [] # infobox contents
     fwhm_lines = [] # list of (half_max, left_x, right_x) for each peak
     
@@ -116,13 +116,17 @@ def find_fwhm(baseline, peaks, path_delay, intensity):
         region_intensity = intensity[mask]
         region_path = path_delay[mask]
         
-        peak_max = np.max(region_intensity)
-        half_max = baseline + (peak_max - baseline) / 2
+        if dips:
+            extremum = np.min(region_intensity)
+            half_max = baseline - (baseline - extremum) / 2
+            below_half = region_intensity <= half_max
+        else:
+            extremum = np.max(region_intensity)
+            half_max = baseline + (extremum - baseline) / 2
+            below_half = region_intensity >= half_max
         
-        top_half = region_intensity >= half_max
-        crossings = np.where(np.diff(top_half.astype(int)))[0] # 1 means low to high, -1 high to low, 0 same side. finally return where crossings occur
+        crossings = np.where(np.diff(below_half.astype(int)))[0]
         
-        # draw the line starting from when it crosses into the top and ending when it comes to the bottom
         if len(crossings) >= 2:
             left_idx = crossings[0]
             right_idx = crossings[-1]
@@ -139,7 +143,7 @@ def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
     wavelength = 0.800 # micrometers
     sample_length = 90 * 1e-6 # meters
     refractive_index = 1.5
-    spectral_width = 3 * 1e14  # extend about 100nm for broadband light source
+    spectral_width = 3.8 * 1e13  # extend about 100nm for broadband light source
 
     # facts
     speed_of_light = 299792458 # meters / second
@@ -149,9 +153,10 @@ def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
     path_delay = speed_of_light * time_shift * 1e-6 # micrometers
 
     spectral_power_distribution = lambda w: np.exp(-(w ** 2) / (2 * spectral_width ** 2)) # function of frequency (radians / second)
-    # Fourier transform from frequency domain to time domain
     # For Gaussian s(w) = exp(-w^2/(2*sigma^2)), FT gives gamma(tau) = sigma*sqrt(2*pi)*exp(-tau^2*sigma^2/2)
-    coherence_function = lambda tau: spectral_width * np.sqrt(2 * pi) * np.exp(-(tau ** 2) * (spectral_width ** 2) / 2) # function of seconds
+    _coherence_raw = lambda tau: spectral_width * np.sqrt(2 * pi) * np.exp(-(tau ** 2) * (spectral_width ** 2) / 2)
+    _coherence_at_zero = _coherence_raw(0.0) # in order to normalize the coherence function
+    coherence_function = lambda tau: _coherence_raw(tau) / _coherence_at_zero
 
     # much like how we define r(w) in prior cases, we go right to defining H(w), so we don't mess with the integral
     sample = sample_func(path_delay) # function of micrometers
@@ -168,29 +173,35 @@ def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
         case 'nonmonochromatic':
             1
         case 'quantum':
-            y_axis = "coincidence rate"
+            y_axis = "norm. QOCT C(τ_q)"
             
-            r1 = peaks[0][0]
-            r2 = peaks[1][0] if len(peaks) > 1 else 0
-                        
-            tau_d = 2 * refractive_index * sample_length / speed_of_light  # seconds (delay of passing through sample)
+            (r1, z1), (r2, z2) = peaks
+
             tau_q = path_delay * 1e-6 / speed_of_light  # seconds
-            pump_frequency = 2 * center_frequency # radians / second
-            
+            tau_z1 = z1 * 1e-6 / speed_of_light # seconds (delay until reaching first reflectance)
+            tau_z2 = z2 * 1e-6 / speed_of_light # seconds (delay until reaching second reflectance)
+            tau_rel = tau_q - tau_z1 # use relative delay to shift it to the right
+
+            # A0 and A(tau_q) use the same normalized coherence function (gamma(0)=1)
             background_term = np.abs(r1)**2 + np.abs(r2)**2
+
+            # Interference term: dips at front (z1) and back (z2) interfaces
+            # A(tau-q) = |r1|^2 * s(tau-q) + |r2|^2 * s(tau-q - 2 * tau-d) + 2Re(r1 * r2' * s(tau-q - tau-d) * e^(i * w-p * n * L / c))
+            term1 = np.abs(r1)**2 * coherence_function(tau_rel)
+            term2 = np.abs(r2)**2 * coherence_function(tau_q - tau_z2)
+            interference_term = term1 + term2
+
+            # R = A0 - A(tau_q), normalized so baseline = 1
+            coincidence_rate = (background_term - interference_term) / background_term
             
-            # Interference term: A(tau_q) = |r1|^2 * s(tau_q) + |r2|^2 * s(tau_q - 2*tau_d) 
-            #                              + 2*Re(r1 * r2* * s(tau_q - tau_d) * e^(i * w_p * n * L / c))
-            term1 = np.abs(r1)**2 * coherence_function(tau_q)
-            term2 = np.abs(r2)**2 * coherence_function(tau_q - 2 * tau_d)
-            phase = pump_frequency * refractive_index * sample_length / speed_of_light
-            cross_term = 2 * np.real(r1 * np.conj(r2) * coherence_function(tau_q - tau_d) * np.exp(1j * phase))
-            interference_term = term1 + term2 + cross_term
-            
-            # R = A0 - A(tau_q)
-            coincidence_rate = background_term - interference_term
+            # create gaussian to represent sample
+            sample = sum(
+                weight * np.exp(-((path_delay - pos) ** 2) / 10)
+                for weight, pos in peaks
+            )
+
             plt.plot(path_delay, coincidence_rate, label='Coincidence Rate')
-            fwhm_lines, fwhm_texts = find_fwhm(0.25, peaks, path_delay, coincidence_rate)
+            fwhm_lines, fwhm_texts = find_fwhm(1.0, peaks, path_delay, coincidence_rate, dips=True)
             visibility_texts = find_visibility(peaks, path_delay, coincidence_rate)
             
         case 'grover-michelson':
@@ -217,6 +228,7 @@ def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
             terms.append(rf"{weight}\delta(z - {pos})")
     label = " + ".join(terms)
 
+    #TODO: fix this title for quantum
     plt.title(f'Graph of {y_axis} vs. path delay with sample $r(z) = {label}$')
     plt.xlabel(r'Path delay $c \tau$ ($\mu$m)')
     plt.ylabel(f'{y_axis}')
@@ -231,6 +243,7 @@ def delta_function(*peaks):
     func = lambda x: sum(weight * np.exp(-((x - pos) ** 2) / 10) for weight, pos in peaks)
     return func, peaks
 
+#TODO: clean up delta_function
 #sample, peaks = delta_function((1, 180), (1.4, 450))
 #plot_interferogram('monochromatic', sample, peaks, 2, 2)
 
@@ -239,9 +252,12 @@ r1 = 0.2  # |r1|^2 = 0.04
 r2 = 0.2  # |r2|^2 = 0.04
 n = 1.5   # refractive index
 L = 90 * 1e-6   # sample thickness (meters)
-c = 299792458 # speed of light in meters/second
+c = 299792458 # speed of light, meters/second
 
+# H(w) = r1 + r2 * e^(i * 2 * w * n * L / c); reflections happen at z1 and z2
+z1 = 180.0 # micrometers
+z2 = z1 + n * L * 1e6 # micrometers
 sample = lambda w: r1 + r2 * np.exp(1j * 2 * w * n * L / c)
-peaks = [(r1, 180), (r2, 180 + n * L * 1e6)]  # for labeling purposes, in micrometers
+peaks = [(r1, z1), (r2, z2)] # (reflectance, location)
 
-plot_interferogram('quantum', sample, peaks, 3.5, 2)
+plot_interferogram('quantum', sample, peaks, 2, 1.3)
