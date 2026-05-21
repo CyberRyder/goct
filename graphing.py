@@ -84,6 +84,11 @@ from math import pi
 import numpy as np
 import matplotlib.pyplot as plt
 
+def delta_function(peaks):
+    """Takes (weight, position) pairs and returns a sum of Gaussians and the peaks."""
+    func = lambda x: sum(weight * np.exp(-((x - pos) ** 2) / 10) for weight, pos in peaks)
+    return func
+
 def find_visibility(peaks, path_delay, intensity):
     """Calculate visibility V = (I_max - I_min) / (I_max + I_min) for each peak region."""
     visibility_texts = []
@@ -136,37 +141,30 @@ def find_fwhm(baseline, peaks, path_delay, intensity, *, dips=False):
     
     return fwhm_lines, fwhm_texts
 
-def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
+def plot_interferogram(experimental_parameters, peaks, time_limit, y_limit):
     y_axis = "intensity"
     
-    # experimental parameters
-    wavelength = 0.800 # micrometers
-    sample_length = 90 * 1e-6 # meters
-    refractive_index = 1.5
-    spectral_width = 3.8 * 1e13  # extend about 100nm for broadband light source
+    oct_type = experimental_parameters['oct_type']
+    central_wavelength = experimental_parameters['central_wavelength'] # micrometers
+    sample_length = experimental_parameters.get('sample_length')  # meters, or None if omitted
+    refractive_index = experimental_parameters.get('refractive_index')
+    spectral_width = experimental_parameters.get('spectral_width')  # extend about 100nm for broadband light source
 
     # facts
     speed_of_light = 299792458 # meters / second
-    center_frequency = 2 * pi * speed_of_light / (wavelength * 1e-6)  # radians / second
-    pump_frequency = 2 * center_frequency # radians / second
-    wavenumber = 2 * pi / wavelength # radians / micrometers
+    central_frequency = 2 * pi * speed_of_light / (central_wavelength * 1e-6)  # radians / second
+    pump_frequency = 2 * central_frequency # radians / second
+    wavenumber = 2 * pi / central_wavelength # radians / micrometers
     time_shift = np.linspace(0, time_limit, 10000) # picoseconds
     path_delay = speed_of_light * time_shift * 1e-6 # micrometers
-
-    spectral_power_distribution = lambda w: np.exp(-(w ** 2) / (2 * spectral_width ** 2)) # function of frequency (radians / second)
-    # For Gaussian s(w) = exp(-w^2/(2*sigma^2)), FT gives gamma(tau) = sigma*sqrt(2*pi)*exp(-tau^2*sigma^2/2)
-    _coherence_raw = lambda tau: spectral_width * np.sqrt(2 * pi) * np.exp(-(tau ** 2) * (spectral_width ** 2) / 2)
-    _coherence_at_zero = _coherence_raw(0.0) # in order to normalize the coherence function
-    coherence_function = lambda tau: _coherence_raw(tau) / _coherence_at_zero
-
-    # much like how we define r(w) in prior cases, we go right to defining H(w), so we don't mess with the integral
-    sample = sample_func(path_delay) # function of micrometers
 
     plt.figure(figsize=(14, 6))
 
 
     match oct_type:
         case 'monochromatic':
+            sample_func = delta_function(peaks)
+            sample = sample_func(path_delay)
             monochromatic_intensity = 1/4 * (1 + np.abs(sample) ** 2 + 2 * sample * np.cos(wavenumber * path_delay))
             plt.plot(path_delay, monochromatic_intensity, label='Intensity')
             fwhm_lines, fwhm_texts = find_fwhm(0.25, peaks, path_delay, monochromatic_intensity)
@@ -174,9 +172,20 @@ def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
         case 'nonmonochromatic':
             1
         case 'quantum':
+            spectral_power_distribution = lambda w: np.exp(-(w ** 2) / (2 * spectral_width ** 2)) # function of frequency (radians / second)
+            # For Gaussian s(w) = exp(-w^2/(2*sigma^2)), FT gives gamma(tau) = sigma*sqrt(2*pi)*exp(-tau^2*sigma^2/2)
+            _coherence_raw = lambda tau: spectral_width * np.sqrt(2 * pi) * np.exp(-(tau ** 2) * (spectral_width ** 2) / 2)
+            _coherence_at_zero = _coherence_raw(0.0) # in order to normalize the coherence function
+            coherence_function = lambda tau: _coherence_raw(tau) / _coherence_at_zero
+            
             y_axis = "norm. QOCT C(τ_q)"
             
             (r1, z1), (r2, z2) = peaks
+
+            # graph this for reference, but not actually used in calculations
+            sample_func = lambda frequency: r1 + r2 * np.exp(1j * 2 * frequency * refractive_index * sample_length / speed_of_light)
+            #TODO: fix this
+            sample = sample_func(path_delay)
 
             tau_q = path_delay * 1e-6 / speed_of_light  # seconds
             tau_z1 = z1 * 1e-6 / speed_of_light # seconds (delay until reaching first reflectance)
@@ -193,8 +202,8 @@ def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
             # also, we subtract a tau_z1 from each argument for the rightward shift
             term1 = np.abs(r1)**2 * coherence_function(tau_q - tau_z1)
             term2 = np.abs(r2)**2 * coherence_function(tau_q - 2 * tau_d - tau_z1)
-            phase = pump_frequency * refractive_index * sample_length / speed_of_light
-            cross_term = 2 * np.real(r1 * np.conj(r2) * coherence_function(tau_q - tau_d - tau_z1) * np.exp(1j * phase))
+            cross_term_phase = pump_frequency * refractive_index * sample_length / speed_of_light
+            cross_term = 2 * np.real(r1 * np.conj(r2) * coherence_function(tau_q - tau_d - tau_z1) * np.exp(1j * cross_term_phase))
             interference_term = term1 + term2 + cross_term
 
             # R = A0 - A(tau_q), normalized so baseline = 1
@@ -246,26 +255,26 @@ def plot_interferogram(oct_type, sample_func, peaks, time_limit, y_limit):
 
     plt.show()
 
-def delta_function(*peaks):
-    """Takes (weight, position) pairs and returns a sum of Gaussians and the peaks."""
-    func = lambda x: sum(weight * np.exp(-((x - pos) ** 2) / 10) for weight, pos in peaks)
-    return func, peaks
+# monochromatic settings:
+peaks = ((1, 180), (1.4, 450))
+experimental_parameters = {
+    'oct_type': 'monochromatic',
+    'central_wavelength': 0.800
+}
 
-#TODO: clean up delta_function
-#sample, peaks = delta_function((1, 180), (1.4, 450))
-#plot_interferogram('monochromatic', sample, peaks, 2, 2)
+# quantum settings:
+experimental_parameters = {
+    'oct_type': 'quantum',
+    'central_wavelength': 0.800, # micrometers
+    'sample_length': 90e-6, # meters
+    'refractive_index': 1.5,
+    'spectral_width': 3.8e13 # radians / second
+}
 
-# Quantum case: H(w) = r1 + r2 * e^(i * 2 * w * n * L / c)
 r1 = 0.2  # |r1|^2 = 0.04
 r2 = 0.2  # |r2|^2 = 0.04
-n = 1.5   # refractive index
-L = 90 * 1e-6   # sample thickness (meters)
-c = 299792458 # speed of light, meters/second
-
-# H(w) = r1 + r2 * e^(i * 2 * w * n * L / c); reflections happen at z1 and z2
 z1 = 180.0 # micrometers
-z2 = z1 + n * L * 1e6 # micrometers
-sample = lambda w: r1 + r2 * np.exp(1j * 2 * w * n * L / c)
+z2 = z1 + experimental_parameters['refractive_index'] * experimental_parameters['sample_length'] * 1e6 # micrometers
 peaks = [(r1, z1), (r2, z2)] # (reflectance, location)
 
-plot_interferogram('quantum', sample, peaks, 2, 2.5)
+plot_interferogram(experimental_parameters, peaks, 2, 2.5)
