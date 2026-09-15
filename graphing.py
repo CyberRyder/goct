@@ -11,6 +11,7 @@ r(z) is the reflectance of the sample
 z is the depth into the sample (equate to delta l = c * tau)
 c is the speed of light
 l is the length of the reference arm
+k is the angular wavenumber (equate to 2pi / wavelength)
 w is the frequency of the light
 tau is the time shift of the reference arm
 
@@ -92,35 +93,35 @@ def delta_function(peaks):
 def find_visibility(peaks, path_delay, intensity):
     """Calculate visibility V = (I_max - I_min) / (I_max + I_min) for each peak region."""
     visibility_texts = []
-    
+
     for _, pos in peaks:
         mask = np.abs(path_delay - pos) < 50
         if not np.any(mask):
             continue
-        
+
         region_intensity = intensity[mask]
         I_max = np.max(region_intensity)
         I_min = np.min(region_intensity)
-        
+
         if I_max + I_min > 0:
             visibility = (I_max - I_min) / (I_max + I_min)
             visibility_texts.append(f"Visibility at z={pos}: {visibility:.3f}")
-    
+
     return visibility_texts
 
 def find_fwhm(baseline, peaks, path_delay, intensity, *, dips=False):
     fwhm_texts = [] # infobox contents
     fwhm_lines = [] # list of (half_max, left_x, right_x) for each peak
-    
+
     for _, pos in peaks:
         mask = np.abs(path_delay - pos) < 50 # Boolean array telling whether each point is near a peak
         if not np.any(mask):
             continue
-        
+
         # grab x and y values at these points
         region_intensity = intensity[mask]
         region_path = path_delay[mask]
-        
+
         if dips:
             extremum = np.min(region_intensity)
             half_max = baseline - (baseline - extremum) / 2
@@ -129,21 +130,21 @@ def find_fwhm(baseline, peaks, path_delay, intensity, *, dips=False):
             extremum = np.max(region_intensity)
             half_max = baseline + (extremum - baseline) / 2
             below_half = region_intensity >= half_max
-        
+
         crossings = np.where(np.diff(below_half.astype(int)))[0]
-        
+
         if len(crossings) >= 2:
             left_idx = crossings[0]
             right_idx = crossings[-1]
             fwhm = region_path[right_idx] - region_path[left_idx]
             fwhm_texts.append(f"FWHM at z={pos}: {fwhm:.2f} μm")
             fwhm_lines.append((half_max, region_path[left_idx], region_path[right_idx]))
-    
+
     return fwhm_lines, fwhm_texts
 
 def plot_interferogram(experimental_parameters, peaks, time_limit, y_limit):
     y_axis = "intensity"
-    
+
     oct_type = experimental_parameters['oct_type']
     central_wavelength = experimental_parameters['central_wavelength'] # micrometers
     sample_length = experimental_parameters.get('sample_length')  # meters, or None if omitted
@@ -162,24 +163,24 @@ def plot_interferogram(experimental_parameters, peaks, time_limit, y_limit):
 
 
     match oct_type:
-        case 'monochromatic':
+        case 'monochromatic standard':
             sample_func = delta_function(peaks)
             sample = sample_func(path_delay)
             monochromatic_intensity = 1/4 * (1 + np.abs(sample) ** 2 + 2 * sample * np.cos(wavenumber * path_delay))
             plt.plot(path_delay, monochromatic_intensity, label='Intensity')
             fwhm_lines, fwhm_texts = find_fwhm(0.25, peaks, path_delay, monochromatic_intensity)
             visibility_texts = find_visibility(peaks, path_delay, monochromatic_intensity)
-        case 'nonmonochromatic':
+        case 'nonmonochromatic standard':
             1
-        case 'quantum':
+        case 'quantum standard':
             spectral_power_distribution = lambda w: np.exp(-(w ** 2) / (2 * spectral_width ** 2)) # function of frequency (radians / second)
             # For Gaussian s(w) = exp(-w^2/(2*sigma^2)), FT gives gamma(tau) = sigma*sqrt(2*pi)*exp(-tau^2*sigma^2/2)
             _coherence_raw = lambda tau: spectral_width * np.sqrt(2 * pi) * np.exp(-(tau ** 2) * (spectral_width ** 2) / 2)
             _coherence_at_zero = _coherence_raw(0.0) # in order to normalize the coherence function
             coherence_function = lambda tau: _coherence_raw(tau) / _coherence_at_zero
-            
+
             y_axis = "norm. QOCT C(τ_q)"
-            
+
             (r1, z1), (r2, z2) = peaks
 
             # graph this for reference, but not actually used in calculations
@@ -208,7 +209,7 @@ def plot_interferogram(experimental_parameters, peaks, time_limit, y_limit):
 
             # R = A0 - A(tau_q), normalized so baseline = 1
             coincidence_rate = (background_term - interference_term) / background_term
-            
+
             '''fix this
             # create gaussian to represent sample
             sample = sum(
@@ -220,16 +221,35 @@ def plot_interferogram(experimental_parameters, peaks, time_limit, y_limit):
             plt.plot(path_delay, coincidence_rate, label='Coincidence Rate')
             fwhm_lines, fwhm_texts = find_fwhm(1.0, peaks, path_delay, coincidence_rate, dips=True)
             visibility_texts = find_visibility(peaks, path_delay, coincidence_rate)
-            
-        case 'grover-michelson':
-            1
+
+        case 'grover monochromatic':
+            # the sample needs to take both arguments of z and w
+            # how do I properly handle the nonmonochromatic configuration?
+            frequency = speed_of_light / experimental_parameters["central_wavelength"]
+            sample_func = delta_function(peaks)
+            sample = sample_func(path_delay)
+
+            tau = path_delay * 1e-6 / speed_of_light
+
+            reference_arm = np.exp(1j * frequency * tau)
+            exiting_state = (1 + reference_arm - sample) * (1 - reference_arm + sample) / (1 + reference_arm + sample)
+
+            grover_monochromatic_intensity = np.abs(exiting_state) ** 2
+            plt.plot(path_delay, grover_monochromatic_intensity, label='Intensity')
+            fwhm_lines, fwhm_texts = find_fwhm(0.25, peaks, path_delay, grover_monochromatic_intensity)
+            visibility_texts = find_visibility(peaks, path_delay, grover_monochromatic_intensity)
+        case 'grover nonmonochromatic':
+            pass
+
+        case 'grover-quantum':
+            pass
 
     plt.plot(path_delay, sample, label='Sample')
 
     # plot fwhm lines
     for half_max, left_x, right_x in fwhm_lines:
         plt.hlines(half_max, left_x, right_x, colors='red', linestyles='-', linewidth=2)
-    
+
     # display infobox with FWHM and visibility
     infobox_texts = fwhm_texts + visibility_texts
     if infobox_texts:
@@ -255,16 +275,9 @@ def plot_interferogram(experimental_parameters, peaks, time_limit, y_limit):
 
     plt.show()
 
-# monochromatic settings:
 peaks = ((1, 180), (1.4, 450))
 experimental_parameters = {
-    'oct_type': 'monochromatic',
-    'central_wavelength': 0.800
-}
-
-# quantum settings:
-experimental_parameters = {
-    'oct_type': 'quantum',
+    'oct_type': 'grover monochromatic',
     'central_wavelength': 0.800, # micrometers
     'sample_length': 90e-6, # meters
     'refractive_index': 1.5,
@@ -277,4 +290,4 @@ z1 = 180.0 # micrometers
 z2 = z1 + experimental_parameters['refractive_index'] * experimental_parameters['sample_length'] * 1e6 # micrometers
 peaks = [(r1, z1), (r2, z2)] # (reflectance, location)
 
-plot_interferogram(experimental_parameters, peaks, 2, 2.5)
+plot_interferogram(experimental_parameters, peaks, 2, 1)
