@@ -1,6 +1,8 @@
 import numpy as np
-from peaks import Peak, delta_function
+
 from custom import DependentVariable
+from peaks import Peak, delta_function
+
 
 def monochromatic_standard(
     peaks: list[Peak],

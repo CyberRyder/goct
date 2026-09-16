@@ -1,12 +1,12 @@
-import tomllib
-
-import numpy as np
-import matplotlib.pyplot as plt
 from math import pi
 
-from peaks import delta_function, new_peaks
-from models import monochromatic_standard
+import matplotlib.pyplot as plt
+import numpy as np
+import tomllib
+
 from custom import DependentVariable
+from models import monochromatic_standard
+from peaks import delta_function, new_peaks
 
 
 def find_visibility(peaks, path_delay, intensity):

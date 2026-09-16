@@ -1,6 +1,8 @@
-from custom import DependentVariable
 from collections.abc import Callable
+
 import numpy as np
+
+from custom import DependentVariable
 
 type Peak = tuple[float, float]
 
