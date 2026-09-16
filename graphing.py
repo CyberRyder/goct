@@ -1,5 +1,4 @@
-'''
-This program graphs intensity at detector versus the length of the reference arm.
+import tomllib
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -61,14 +60,18 @@ def find_fwhm(baseline, peaks, path_delay, intensity, *, dips=False):
 
     return fwhm_lines, fwhm_texts
 
-def plot_interferogram(experimental_parameters, peaks, time_limit, y_limit):
-    y_axis = "intensity"
+def plot_interferogram(cfg, peaks, time_limit, y_limit):
+    y_axis: str = "intensity"
 
-    oct_type = experimental_parameters['oct_type']
-    central_wavelength = experimental_parameters['central_wavelength'] # micrometers
-    sample_length = experimental_parameters.get('sample_length')  # meters, or None if omitted
-    refractive_index = experimental_parameters.get('refractive_index')
-    spectral_width = experimental_parameters.get('spectral_width')  # extend about 100nm for broadband light source
+    # TODO: write validator
+    oct_type: str = cfg['general']['oct_type']
+    grover: bool = cfg['general']['grover']
+
+    sample_length: float = cfg['sample']['length'] # meters, or None if omitted
+    refractive_index: float = cfg['sample']['refractive_index']
+
+    central_wavelength: float = cfg['laser']['central_wavelength'] # micrometers
+    spectral_width: float = cfg['laser']['spectral_width'] # extend about 100nm for broadband light source
 
     # facts
     speed_of_light = 299792458 # meters / second
@@ -80,6 +83,9 @@ def plot_interferogram(experimental_parameters, peaks, time_limit, y_limit):
 
     plt.figure(figsize=(14, 6))
 
+    match oct_type, grover:
+        case 'monochromatic', False:
+            intensity = monochromatic_standard(peaks, path_delay, wavenumber)
 
     match oct_type:
         case 'monochromatic standard':
@@ -141,7 +147,7 @@ def plot_interferogram(experimental_parameters, peaks, time_limit, y_limit):
             fwhm_lines, fwhm_texts = find_fwhm(1.0, peaks, path_delay, coincidence_rate, dips=True)
             visibility_texts = find_visibility(peaks, path_delay, coincidence_rate)
 
-        case 'grover monochromatic':
+        case 'monochromatic', True:
             # the sample needs to take both arguments of z and w
             # how do I properly handle the nonmonochromatic configuration?
             frequency = speed_of_light / experimental_parameters["central_wavelength"]
@@ -157,10 +163,10 @@ def plot_interferogram(experimental_parameters, peaks, time_limit, y_limit):
             plt.plot(path_delay, grover_monochromatic_intensity, label='Intensity')
             fwhm_lines, fwhm_texts = find_fwhm(0.25, peaks, path_delay, grover_monochromatic_intensity)
             visibility_texts = find_visibility(peaks, path_delay, grover_monochromatic_intensity)
-        case 'grover nonmonochromatic':
+        case 'nonmonochromatic', True:
             pass
 
-        case 'grover-quantum':
+        case 'quantum', True:
             pass
 
     plt.plot(path_delay, sample, label='Sample')
@@ -194,19 +200,11 @@ def plot_interferogram(experimental_parameters, peaks, time_limit, y_limit):
 
     plt.show()
 
-peaks = ((1, 180), (1.4, 450))
-experimental_parameters = {
-    'oct_type': 'grover monochromatic',
-    'central_wavelength': 0.800, # micrometers
-    'sample_length': 90e-6, # meters
-    'refractive_index': 1.5,
-    'spectral_width': 3.8e13 # radians / second
-}
+#peaks = ((1, 180), (1.4, 450))
 
-r1 = 0.2  # |r1|^2 = 0.04
-r2 = 0.2  # |r2|^2 = 0.04
-z1 = 180.0 # micrometers
-z2 = z1 + experimental_parameters['refractive_index'] * experimental_parameters['sample_length'] * 1e6 # micrometers
-peaks = [(r1, z1), (r2, z2)] # (reflectance, location)
+with open("config.toml", "rb") as f:
+    cfg = tomllib.load(f)
 
-plot_interferogram(experimental_parameters, peaks, 2, 1)
+peaks = new_peaks(0.2, 0.2, 180.0, cfg['sample']['refractive_index'], cfg['sample']['length'])
+
+plot_interferogram(cfg, peaks, cfg['general']['time_limit'], cfg['general']['y_limit'])

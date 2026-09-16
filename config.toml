@@ -1,0 +1,20 @@
+# ===================================
+# Experiment Configuration
+# ===================================
+
+[general]
+oct_type = "grover monochromatic"          # options: "monochromatic", "nonmonochromatic", "quantum"
+grover = false              # uses the beam splitter (standard) or the Grover coin
+time_limit = 2                # seconds
+y_limit = 1                   # unitless (?)
+
+[sample]
+length = 90e-6         # meters
+refractive_index = 1.5        # unitless
+initial_depth = 180.0          # micrometers (?)
+entering_reflectance = 0.2    # percent of light
+exiting_reflectance = 0.2     # percent of light
+
+[laser]
+central_wavelength = 0.800    # micrometers
+spectral_width = 3.8e13       # radians / second
