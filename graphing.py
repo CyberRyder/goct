@@ -2,11 +2,12 @@ import tomllib
 
 import numpy as np
 import matplotlib.pyplot as plt
+from math import pi
 
-def delta_function(peaks):
-    """Takes (weight, position) pairs and returns a sum of Gaussians and the peaks."""
-    func = lambda x: sum(weight * np.exp(-((x - pos) ** 2) / 10) for weight, pos in peaks)
-    return func
+from peaks import delta_function, new_peaks
+from models import monochromatic_standard
+from custom import DependentVariable
+
 
 def find_visibility(peaks, path_delay, intensity):
     """Calculate visibility V = (I_max - I_min) / (I_max + I_min) for each peak region."""
@@ -74,12 +75,12 @@ def plot_interferogram(cfg, peaks, time_limit, y_limit):
     spectral_width: float = cfg['laser']['spectral_width'] # extend about 100nm for broadband light source
 
     # facts
-    speed_of_light = 299792458 # meters / second
-    central_frequency = 2 * pi * speed_of_light / (central_wavelength * 1e-6)  # radians / second
-    pump_frequency = 2 * central_frequency # radians / second
-    wavenumber = 2 * pi / central_wavelength # radians / micrometers
-    time_shift = np.linspace(0, time_limit, 10000) # picoseconds
-    path_delay = speed_of_light * time_shift * 1e-6 # micrometers
+    speed_of_light: int = 299792458 # meters / second
+    central_frequency: float = 2 * pi * speed_of_light / (central_wavelength * 1e-6)  # radians / second
+    pump_frequency: float = 2 * central_frequency # radians / second
+    wavenumber: float = 2 * pi / central_wavelength # radians / micrometers
+    time_shift: DependentVariable = np.linspace(0, time_limit, 10000) # picoseconds
+    path_delay: DependentVariable = speed_of_light * time_shift * 1e-6 # micrometers
 
     plt.figure(figsize=(14, 6))
 
@@ -87,18 +88,14 @@ def plot_interferogram(cfg, peaks, time_limit, y_limit):
         case 'monochromatic', False:
             intensity = monochromatic_standard(peaks, path_delay, wavenumber)
 
-    match oct_type:
-        case 'monochromatic standard':
-            sample_func = delta_function(peaks)
-            sample = sample_func(path_delay)
-            monochromatic_intensity = 1/4 * (1 + np.abs(sample) ** 2 + 2 * sample * np.cos(wavenumber * path_delay))
-            plt.plot(path_delay, monochromatic_intensity, label='Intensity')
-            fwhm_lines, fwhm_texts = find_fwhm(0.25, peaks, path_delay, monochromatic_intensity)
-            visibility_texts = find_visibility(peaks, path_delay, monochromatic_intensity)
-        case 'nonmonochromatic standard':
-            1
-        case 'quantum standard':
-            spectral_power_distribution = lambda w: np.exp(-(w ** 2) / (2 * spectral_width ** 2)) # function of frequency (radians / second)
+            plt.plot(path_delay, intensity, label='Intensity')
+            fwhm_lines, fwhm_texts = find_fwhm(0.25, peaks, path_delay, intensity)
+            visibility_texts = find_visibility(peaks, path_delay, intensity)
+        case 'nonmonochromatic', False:
+            pass
+
+        case 'quantum', False:
+            _spectral_power_distribution = lambda w: np.exp(-(w ** 2) / (2 * spectral_width ** 2)) # function of frequency (radians / second)
             # For Gaussian s(w) = exp(-w^2/(2*sigma^2)), FT gives gamma(tau) = sigma*sqrt(2*pi)*exp(-tau^2*sigma^2/2)
             _coherence_raw = lambda tau: spectral_width * np.sqrt(2 * pi) * np.exp(-(tau ** 2) * (spectral_width ** 2) / 2)
             _coherence_at_zero = _coherence_raw(0.0) # in order to normalize the coherence function
@@ -150,7 +147,7 @@ def plot_interferogram(cfg, peaks, time_limit, y_limit):
         case 'monochromatic', True:
             # the sample needs to take both arguments of z and w
             # how do I properly handle the nonmonochromatic configuration?
-            frequency = speed_of_light / experimental_parameters["central_wavelength"]
+            frequency = speed_of_light / central_wavelength
             sample_func = delta_function(peaks)
             sample = sample_func(path_delay)
 
@@ -169,8 +166,11 @@ def plot_interferogram(cfg, peaks, time_limit, y_limit):
         case 'quantum', True:
             pass
 
+    sample_func = delta_function(peaks)
+    sample = sample_func(path_delay)
     plt.plot(path_delay, sample, label='Sample')
 
+    # TODO: fix this
     # plot fwhm lines
     for half_max, left_x, right_x in fwhm_lines:
         plt.hlines(half_max, left_x, right_x, colors='red', linestyles='-', linewidth=2)
