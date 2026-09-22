@@ -1,18 +1,16 @@
-from os import path
-
 import numpy as np
 
 from custom import DependentVariable, IndependentVariable
-from peaks import Peak, delta_function
+from peaks import Peak, build_sample
 
 
 def monochromatic_standard(
     peaks: list[Peak],
+    sample_shape: str,
     path_delay: IndependentVariable,
     wavenumber: float
 ) -> DependentVariable:
-    sample_func = delta_function(peaks)
-    sample = sample_func(path_delay)
+    sample = build_sample(peaks, sample_shape, path_delay)
     intensity: DependentVariable = 1/4 * (1 + np.abs(sample) ** 2 + 2 * sample * np.cos(wavenumber * path_delay))
 
     return intensity
@@ -73,6 +71,7 @@ def quantum_standard(
 
 def monochromatic_grover(
     peaks: list[Peak],
+    sample_shape: str,
     path_delay: IndependentVariable,
     speed_of_light: float,
     central_wavelength: float
@@ -80,14 +79,30 @@ def monochromatic_grover(
     # the sample needs to take both arguments of z and w
     # how do I properly handle the nonmonochromatic configuration?
     frequency = speed_of_light / central_wavelength
-    sample_func = delta_function(peaks)
-    sample = sample_func(path_delay)
-
     tau = path_delay * 1e-6 / speed_of_light
 
     reference_arm = np.exp(1j * frequency * tau)
-    exiting_state = (1 + reference_arm - sample) * (1 - reference_arm + sample) / (1 + reference_arm + sample)
+    sample = build_sample(peaks, sample_shape, path_delay)
 
+    exiting_state = (1 + reference_arm - sample) * (1 - reference_arm + sample) / (1 + reference_arm + sample)
     intensity: DependentVariable = np.abs(exiting_state) ** 2
 
     return intensity
+
+# currently broken
+def quantum_grover(
+    peaks: list[Peak],
+    sample_shape: str,
+    path_delay: IndependentVariable,
+    speed_of_light: float,
+    central_wavelength: float
+) -> DependentVariable:
+    frequency = speed_of_light / central_wavelength
+    tau = path_delay * 1e-6 / speed_of_light
+
+    reference_arm = np.exp(1j * frequency * tau)
+    sample = build_sample(peaks, sample_shape, path_delay)
+
+    coincidence_rate = reference_arm + sample + ((reference_arm - sample) ** 2 / (reference_arm + sample)) * (4 / (2 - reference_arm - sample) * (2 + reference_arm + sample))
+
+    return coincidence_rate

@@ -4,9 +4,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tomllib
 
-from custom import IndependentVariable, DependentVariable
-from models import monochromatic_grover, monochromatic_standard, quantum_standard
-from peaks import delta_function, new_peaks, Peak
+from custom import DependentVariable, IndependentVariable
+from models import (
+    monochromatic_grover,
+    monochromatic_standard,
+    quantum_grover,
+    quantum_standard,
+)
+from peaks import Peak, build_sample, new_peaks
 
 
 def find_visibility(peaks: list[Peak], path_delay: IndependentVariable, intensity: DependentVariable):
@@ -70,6 +75,7 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
 
     sample_length: float = cfg['sample']['length'] # meters, or None if omitted
     refractive_index: float = cfg['sample']['refractive_index']
+    sample_shape: str = cfg['sample']['shape']
 
     central_wavelength: float = cfg['laser']['central_wavelength'] # micrometers
     spectral_width: float = cfg['laser']['spectral_width'] # extend about 100nm for broadband light source
@@ -84,9 +90,11 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
 
     plt.figure(figsize=(14, 6))
 
+    fwhm_lines, fwhm_texts, visibility_texts = [], [], []
+
     match oct_type, grover:
         case 'monochromatic', False:
-            intensity = monochromatic_standard(peaks, path_delay, wavenumber)
+            intensity = monochromatic_standard(peaks, sample_shape, path_delay, wavenumber)
 
             plt.plot(path_delay, intensity, label='Intensity')
             fwhm_lines, fwhm_texts = find_fwhm(0.25, peaks, path_delay, intensity)
@@ -101,9 +109,8 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
             plt.plot(path_delay, coincidence_rate, label='Coincidence Rate')
             fwhm_lines, fwhm_texts = find_fwhm(1.0, peaks, path_delay, coincidence_rate, dips=True)
             visibility_texts = find_visibility(peaks, path_delay, coincidence_rate)
-
         case 'monochromatic', True:
-            intensity = monochromatic_grover(peaks, path_delay, speed_of_light, central_wavelength)
+            intensity = monochromatic_grover(peaks, sample_shape, path_delay, speed_of_light, central_wavelength)
 
             plt.plot(path_delay, intensity, label='Intensity')
             fwhm_lines, fwhm_texts = find_fwhm(0.25, peaks, path_delay, intensity)
@@ -112,10 +119,13 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
             pass
 
         case 'quantum', True:
-            pass
+            coincidence_rate = quantum_grover(peaks, sample_shape, path_delay, speed_of_light, central_wavelength)
 
-    sample_func = delta_function(peaks)
-    sample = sample_func(path_delay)
+            plt.plot(path_delay, coincidence_rate, label='Coincidence Rate')
+            fwhm_lines, fwhm_texts = find_fwhm(1.0, peaks, path_delay, coincidence_rate, dips=True)
+            visibility_texts = find_visibility(peaks, path_delay, coincidence_rate)
+
+    sample = build_sample(peaks, sample_shape, path_delay)
     plt.plot(path_delay, sample, label='Sample')
 
     # TODO: fix this
@@ -127,7 +137,7 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
     infobox_texts = fwhm_texts + visibility_texts
     if infobox_texts:
         plt.text(0.02, 0.98, '\n'.join(infobox_texts), transform=plt.gca().transAxes,
-                verticalalignment='top', fontsize=10, bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+                verticalalignment='top', fontsize=10, bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.8})
 
     # generate latex for the delta function
     terms = []
