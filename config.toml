@@ -14,7 +14,7 @@ refractive_index = 1.5        # unitless
 initial_depth = 180.0          # micrometers (?)
 entering_reflectance = 0.2    # percent of light
 exiting_reflectance = 0.2     # percent of light
-shape = "gaussian" # options: "gaussian", "cornered"
+shape = "cornered" # options: "gaussian", "cornered"
 
 [laser]
 central_wavelength = 0.800    # micrometers

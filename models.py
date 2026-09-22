@@ -30,7 +30,7 @@ def quantum_standard(
     _coherence_at_zero = _coherence_raw(0.0) # in order to normalize the coherence function
     coherence_function = lambda tau: _coherence_raw(tau) / _coherence_at_zero
 
-    (r1, z1), (r2, z2) = peaks
+    [r1, z1, _], [r2, z2, _] = peaks
 
     # graph this for reference, but not actually used in calculations
     #_sample_func = lambda frequency: r1 + r2 * np.exp(1j * 2 * frequency * refractive_index * sample_length / speed_of_light)

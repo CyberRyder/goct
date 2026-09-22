@@ -18,7 +18,7 @@ def find_visibility(peaks: list[Peak], path_delay: IndependentVariable, intensit
     """Calculate visibility V = (I_max - I_min) / (I_max + I_min) for each peak region."""
     visibility_texts = []
 
-    for _, pos in peaks:
+    for _, pos, _ in peaks:
         mask = np.abs(path_delay - pos) < 50
         if not np.any(mask):
             continue
@@ -37,7 +37,7 @@ def find_fwhm(baseline: float, peaks: list[Peak], path_delay: IndependentVariabl
     fwhm_texts = [] # infobox contents
     fwhm_lines = [] # list of (half_max, left_x, right_x) for each peak
 
-    for _, pos in peaks:
+    for _, pos, _ in peaks:
         mask = np.abs(path_delay - pos) < 50 # Boolean array telling whether each point is near a peak
         if not np.any(mask):
             continue
@@ -141,7 +141,7 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
 
     # generate latex for the delta function
     terms = []
-    for weight, pos in peaks:
+    for weight, pos, _ in peaks:
         if weight == 1:
             terms.append(rf"\delta(z - {pos})")
         else:
@@ -163,6 +163,6 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
 with open("config.toml", "rb") as f:
     cfg = tomllib.load(f)
 
-peaks = new_peaks(0.2, 0.2, 180.0, cfg['sample']['refractive_index'], cfg['sample']['length'])
+peaks = new_peaks(0.2, 0.2, 10, 10, 180.0, cfg['sample']['refractive_index'], cfg['sample']['length'])
 
 plot_interferogram(cfg, peaks, cfg['general']['time_limit'], cfg['general']['y_limit'])
