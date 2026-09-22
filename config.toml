@@ -3,8 +3,8 @@
 # ===================================
 
 [general]
-oct_type = "grover monochromatic"          # options: "monochromatic", "nonmonochromatic", "quantum"
-grover = false              # uses the beam splitter (standard) or the Grover coin
+oct_type = "monochromatic"          # options: "monochromatic", "nonmonochromatic", "quantum"
+grover = true              # uses the beam splitter (standard) or the Grover coin
 time_limit = 2                # seconds
 y_limit = 1                   # unitless (?)
 

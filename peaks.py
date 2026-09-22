@@ -2,13 +2,13 @@ from collections.abc import Callable
 
 import numpy as np
 
-from custom import DependentVariable
+from custom import IndependentVariable
 
 type Peak = tuple[float, float]
 
-def delta_function(peaks: list[Peak]) -> Callable[[DependentVariable], DependentVariable]:
+def delta_function(peaks: list[Peak]) -> Callable[[IndependentVariable], IndependentVariable]:
     """Takes (reflectance, depth) pairs and returns a sum of Gaussians."""
-    def func(x: DependentVariable) -> DependentVariable:
+    def func(x: IndependentVariable) -> IndependentVariable:
         return sum(
             (reflectance * np.exp(-((x - depth) ** 2) / 10) for reflectance, depth in peaks),
             np.zeros_like(x) # empty array as start value
