@@ -18,10 +18,9 @@ type SampleFunc = Callable[[IndependentVariable], DependentVariable]
 #     ) -> DependentVariable:
 #         ...
 
+type FWHMLine = tuple[float, DependentVariable, DependentVariable] # (half_max, left_x, right_x)
 
-type FWHMLine = tuple[float, float, float] # (half_max, left_x, right_x)
-
-# one FWHM contains all the lines and texts for a single graph
+# one FWHM contains all the lines and texts for a single interferogram
 class FWHM:
     lines: list[FWHMLine]
     texts: list[str]

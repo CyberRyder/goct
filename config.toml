@@ -15,7 +15,9 @@ length = 90e-6         # meters
 refractive_index = 1.5        # unitless
 initial_depth = 180.0          # micrometers (?)
 entering_reflectance = 0.2    # percent of light
+entering_reflectance_narrowness = 10
 exiting_reflectance = 0.2     # percent of light
+exiting_reflectance_narrowness = 10
 shape = "gaussian" # options: "gaussian", "cornered"
 
 [laser]

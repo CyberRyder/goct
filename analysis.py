@@ -1,6 +1,6 @@
 import numpy as np
 
-from custom import DependentVariable, IndependentVariable
+from custom import DependentVariable, FWHMLine, IndependentVariable
 from peaks import Peak
 
 
@@ -23,9 +23,15 @@ def find_visibility(peaks: list[Peak], path_delay: IndependentVariable, intensit
 
     return visibility_texts
 
-def find_fwhm(baseline: float, peaks: list[Peak], path_delay: IndependentVariable, intensity: DependentVariable, *, dips=False):
-    fwhm_texts = [] # infobox contents
-    fwhm_lines = [] # list of (half_max, left_x, right_x) for each peak
+def find_fwhm(
+    baseline: float,
+    peaks: list[Peak],
+    path_delay: IndependentVariable,
+    intensity: DependentVariable,
+    *, dips=False) -> tuple[list[FWHMLine], list[str]]:
+
+    fwhm_lines: list[FWHMLine] = [] # list of (half_max, left_x, right_x) for each peak
+    fwhm_texts: list[str] = [] # infobox contents
 
     for _, pos, _ in peaks:
         mask = np.abs(path_delay - pos) < 50 # Boolean array telling whether each point is near a peak
@@ -54,7 +60,7 @@ def find_fwhm(baseline: float, peaks: list[Peak], path_delay: IndependentVariabl
             fwhm_texts.append(f"FWHM at z={pos}: {fwhm:.2f} μm")
             fwhm_lines.append((half_max, region_path[left_idx], region_path[right_idx]))
 
-    return fwhm_lines, fwhm_texts
+    return (fwhm_lines, fwhm_texts)
 
 def scale_interferogram(baseline: float, peaks: list[Peak], path_delay: IndependentVariable, sample: DependentVariable, interferogram: DependentVariable) -> DependentVariable:
     """Scale the interferogram to have the same maximum as the sample"""

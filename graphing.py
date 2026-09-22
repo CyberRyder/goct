@@ -110,7 +110,7 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
                 verticalalignment='top', fontsize=10, bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.8})
 
     # generate latex for the delta function
-    terms = []
+    terms: list[str] = []
     for reflectance, pos, _ in peaks:
         if reflectance == 1:
             terms.append(rf"\delta(z - {pos})")
@@ -133,6 +133,13 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
 with open("config.toml", "rb") as f:
     cfg = tomllib.load(f)
 
-peaks = new_peaks(0.2, 0.2, 10, 10, 180.0, cfg['sample']['refractive_index'], cfg['sample']['length'])
+peaks = new_peaks(
+    cfg['sample']['entering_reflectance'],
+    cfg['sample']['entering_reflectance'],
+    cfg['sample']['entering_reflectance_narrowness'],
+    cfg['sample']['exiting_reflectance_narrowness'],
+    cfg['sample']['initial_depth'],
+    cfg['sample']['refractive_index'],
+    cfg['sample']['length'])
 
 plot_interferogram(cfg, peaks, cfg['graphing']['time_limit'], cfg['graphing']['y_limit'])
