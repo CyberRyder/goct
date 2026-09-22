@@ -1,6 +1,6 @@
 import numpy as np
 
-from custom import IndependentVariable, SampleFunc
+from custom import DependentVariable, IndependentVariable, SampleFunc
 
 type Peak = tuple[float, float, float]
 
@@ -37,7 +37,7 @@ def new_peaks(
     depth_2 = depth_1 + refractive_index * sample_length * 1e6 # micrometers
     return [(reflectance_1, depth_1, narrowness_1), (reflectance_2, depth_2, narrowness_2)] # (reflectance, location)
 
-def build_sample(peaks: list[Peak], sample_shape: str, path_delay: IndependentVariable) -> IndependentVariable:
+def build_sample(peaks: list[Peak], sample_shape: str, path_delay: IndependentVariable) -> DependentVariable:
     sample_func: SampleFunc = lambda x: x # placeholder default
 
     match sample_shape:

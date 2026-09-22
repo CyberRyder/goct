@@ -103,6 +103,6 @@ def quantum_grover(
     reference_arm = np.exp(1j * frequency * tau)
     sample = build_sample(peaks, sample_shape, path_delay)
 
-    coincidence_rate = reference_arm + sample + ((reference_arm - sample) ** 2 / (reference_arm + sample)) * (4 / (2 - reference_arm - sample) * (2 + reference_arm + sample))
+    coincidence_rate: DependentVariable = reference_arm + sample + ((reference_arm - sample) ** 2 / (reference_arm + sample)) * (4 / (2 - reference_arm - sample) * (2 + reference_arm + sample))
 
     return coincidence_rate

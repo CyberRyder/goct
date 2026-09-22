@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tomllib
 
-from custom import DependentVariable, IndependentVariable
+from analysis import find_fwhm, find_visibility, scale_interferogram
+from custom import FWHM, IndependentVariable
 from models import (
     monochromatic_grover,
     monochromatic_standard,
@@ -14,64 +15,12 @@ from models import (
 from peaks import Peak, build_sample, new_peaks
 
 
-def find_visibility(peaks: list[Peak], path_delay: IndependentVariable, intensity: DependentVariable):
-    """Calculate visibility V = (I_max - I_min) / (I_max + I_min) for each peak region."""
-    visibility_texts = []
-
-    for _, pos, _ in peaks:
-        mask = np.abs(path_delay - pos) < 50
-        if not np.any(mask):
-            continue
-
-        region_intensity = intensity[mask]
-        I_max = np.max(region_intensity)
-        I_min = np.min(region_intensity)
-
-        if I_max + I_min > 0:
-            visibility = (I_max - I_min) / (I_max + I_min)
-            visibility_texts.append(f"Visibility at z={pos}: {visibility:.3f}")
-
-    return visibility_texts
-
-def find_fwhm(baseline: float, peaks: list[Peak], path_delay: IndependentVariable, intensity: DependentVariable, *, dips=False):
-    fwhm_texts = [] # infobox contents
-    fwhm_lines = [] # list of (half_max, left_x, right_x) for each peak
-
-    for _, pos, _ in peaks:
-        mask = np.abs(path_delay - pos) < 50 # Boolean array telling whether each point is near a peak
-        if not np.any(mask):
-            continue
-
-        # grab x and y values at these points
-        region_intensity = intensity[mask]
-        region_path = path_delay[mask]
-
-        if dips:
-            extremum = np.min(region_intensity)
-            half_max = baseline - (baseline - extremum) / 2
-            below_half = region_intensity <= half_max
-        else:
-            extremum = np.max(region_intensity)
-            half_max = baseline + (extremum - baseline) / 2
-            below_half = region_intensity >= half_max
-
-        crossings = np.where(np.diff(below_half.astype(int)))[0]
-
-        if len(crossings) >= 2:
-            left_idx = crossings[0]
-            right_idx = crossings[-1]
-            fwhm = region_path[right_idx] - region_path[left_idx]
-            fwhm_texts.append(f"FWHM at z={pos}: {fwhm:.2f} μm")
-            fwhm_lines.append((half_max, region_path[left_idx], region_path[right_idx]))
-
-    return fwhm_lines, fwhm_texts
-
 def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float):
     y_axis: str = "intensity"
 
     # TODO: write validator
-    oct_type: str = cfg['general']['oct_type']
-    grover: bool = cfg['general']['grover']
+    oct_type: str = cfg['graphing']['oct_type']
+    grover: bool = cfg['graphing']['grover']
 
     sample_length: float = cfg['sample']['length'] # meters, or None if omitted
     refractive_index: float = cfg['sample']['refractive_index']
@@ -90,15 +39,16 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
 
     plt.figure(figsize=(14, 6))
 
-    fwhm_lines, fwhm_texts, visibility_texts = [], [], []
+    fwhms: list[FWHM] = []
+    visibility_texts: list[list[str]] = []
 
     match oct_type, grover:
         case 'monochromatic', False:
             intensity = monochromatic_standard(peaks, sample_shape, path_delay, wavenumber)
 
             plt.plot(path_delay, intensity, label='Intensity')
-            fwhm_lines, fwhm_texts = find_fwhm(0.25, peaks, path_delay, intensity)
-            visibility_texts = find_visibility(peaks, path_delay, intensity)
+            fwhms.append(FWHM(*find_fwhm(0.25, peaks, path_delay, intensity)))
+            visibility_texts.append(find_visibility(peaks, path_delay, intensity))
         case 'nonmonochromatic', False:
             pass
 
@@ -107,45 +57,65 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
             y_axis = "norm. QOCT C(τ_q)"
 
             plt.plot(path_delay, coincidence_rate, label='Coincidence Rate')
-            fwhm_lines, fwhm_texts = find_fwhm(1.0, peaks, path_delay, coincidence_rate, dips=True)
-            visibility_texts = find_visibility(peaks, path_delay, coincidence_rate)
+            fwhms.append(FWHM(*find_fwhm(1.0, peaks, path_delay, coincidence_rate, dips=True)))
+            visibility_texts.append(find_visibility(peaks, path_delay, coincidence_rate))
         case 'monochromatic', True:
             intensity = monochromatic_grover(peaks, sample_shape, path_delay, speed_of_light, central_wavelength)
 
-            plt.plot(path_delay, intensity, label='Intensity')
-            fwhm_lines, fwhm_texts = find_fwhm(0.25, peaks, path_delay, intensity)
-            visibility_texts = find_visibility(peaks, path_delay, intensity)
+            if cfg['graphing']['display_interferogram']:
+                plt.plot(path_delay, intensity, label='Intensity')
+                fwhms.append(FWHM(*find_fwhm(0, peaks, path_delay, intensity)))
+                visibility_texts.append(find_visibility(peaks, path_delay, intensity))
+
+            if cfg['graphing']['display_scaled_interferogram']:
+                sample = build_sample(peaks, sample_shape, path_delay)
+                scaled_interferogram = scale_interferogram(0, peaks, path_delay, sample, intensity)
+                plt.plot(path_delay, scaled_interferogram, label='Scaled Intensity')
+
+                fwhms.append(FWHM(*find_fwhm(0, peaks, path_delay, scaled_interferogram)))
+                visibility_texts.append(find_visibility(peaks, path_delay, scaled_interferogram))
+
         case 'nonmonochromatic', True:
             pass
 
         case 'quantum', True:
-            coincidence_rate = quantum_grover(peaks, sample_shape, path_delay, speed_of_light, central_wavelength)
+            interferogram = quantum_grover(peaks, sample_shape, path_delay, speed_of_light, central_wavelength)
 
-            plt.plot(path_delay, coincidence_rate, label='Coincidence Rate')
-            fwhm_lines, fwhm_texts = find_fwhm(1.0, peaks, path_delay, coincidence_rate, dips=True)
-            visibility_texts = find_visibility(peaks, path_delay, coincidence_rate)
+            plt.plot(path_delay, interferogram, label='Coincidence Rate')
+            fwhms.append(FWHM(*find_fwhm(1.0, peaks, path_delay, interferogram, dips=True)))
+            visibility_texts.append(find_visibility(peaks, path_delay, interferogram))
 
     sample = build_sample(peaks, sample_shape, path_delay)
     plt.plot(path_delay, sample, label='Sample')
 
-    # TODO: fix this
+    infobox_texts = []
     # plot fwhm lines
-    for half_max, left_x, right_x in fwhm_lines:
-        plt.hlines(half_max, left_x, right_x, colors='red', linestyles='-', linewidth=2)
+    print(len(fwhms))
+    print(fwhms)
+
+    for fwhm in fwhms:
+        infobox_texts += fwhm.texts
+
+        print(fwhm.texts)
+
+        for line in fwhm.lines:
+            half_max, left_x, right_x = line
+            plt.hlines(half_max, left_x, right_x, colors='red', linestyles='-', linewidth=2)
 
     # display infobox with FWHM and visibility
-    infobox_texts = fwhm_texts + visibility_texts
+    for texts in visibility_texts:
+        infobox_texts += texts
     if infobox_texts:
         plt.text(0.02, 0.98, '\n'.join(infobox_texts), transform=plt.gca().transAxes,
                 verticalalignment='top', fontsize=10, bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.8})
 
     # generate latex for the delta function
     terms = []
-    for weight, pos, _ in peaks:
-        if weight == 1:
+    for reflectance, pos, _ in peaks:
+        if reflectance == 1:
             terms.append(rf"\delta(z - {pos})")
         else:
-            terms.append(rf"{weight}\delta(z - {pos})")
+            terms.append(rf"{reflectance}\delta(z - {pos})")
     label = " + ".join(terms)
 
     #TODO: fix this title for quantum
@@ -165,4 +135,4 @@ with open("config.toml", "rb") as f:
 
 peaks = new_peaks(0.2, 0.2, 10, 10, 180.0, cfg['sample']['refractive_index'], cfg['sample']['length'])
 
-plot_interferogram(cfg, peaks, cfg['general']['time_limit'], cfg['general']['y_limit'])
+plot_interferogram(cfg, peaks, cfg['graphing']['time_limit'], cfg['graphing']['y_limit'])

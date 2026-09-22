@@ -2,11 +2,13 @@
 # Experiment Configuration
 # ===================================
 
-[general]
-oct_type = "quantum"          # options: "monochromatic", "nonmonochromatic", "quantum"
+[graphing]
+oct_type = "monochromatic"          # options: "monochromatic", "nonmonochromatic", "quantum"
 grover = true              # uses the beam splitter (standard) or the Grover coin
 time_limit = 2                # seconds
 y_limit = 1                   # unitless (?)
+display_interferogram = true
+display_scaled_interferogram = true
 
 [sample]
 length = 90e-6         # meters
@@ -14,7 +16,7 @@ refractive_index = 1.5        # unitless
 initial_depth = 180.0          # micrometers (?)
 entering_reflectance = 0.2    # percent of light
 exiting_reflectance = 0.2     # percent of light
-shape = "cornered" # options: "gaussian", "cornered"
+shape = "gaussian" # options: "gaussian", "cornered"
 
 [laser]
 central_wavelength = 0.800    # micrometers
