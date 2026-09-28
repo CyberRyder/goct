@@ -18,7 +18,7 @@ entering_reflectance = 0.2    # percent of light
 entering_reflectance_narrowness = 10
 exiting_reflectance = 0.2     # percent of light
 exiting_reflectance_narrowness = 10
-shape = "gaussian" # options: "gaussian", "cornered"
+shape = "cornered" # options: "gaussian", "cornered"
 
 [laser]
 central_wavelength = 0.800    # micrometers

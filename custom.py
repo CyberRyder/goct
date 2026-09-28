@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from enum import Enum
 
 from numpy._core.numerictypes import float64
 from numpy._typing import NDArray
@@ -20,8 +21,8 @@ type SampleFunc = Callable[[IndependentVariable], DependentVariable]
 
 type FWHMLine = tuple[float, DependentVariable, DependentVariable] # (half_max, left_x, right_x)
 
-# one FWHM contains all the lines and texts for a single interferogram
 class FWHM:
+    """Class containing all FWHM data for all peaks belonging to a single interferogram."""
     lines: list[FWHMLine]
     texts: list[str]
 

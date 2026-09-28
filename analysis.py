@@ -29,6 +29,7 @@ def find_fwhm(
     path_delay: IndependentVariable,
     intensity: DependentVariable,
     *, dips=False) -> tuple[list[FWHMLine], list[str]]:
+    """Generate co-ordinates of line displaying the full width at half-maximum for each peak region."""
 
     fwhm_lines: list[FWHMLine] = [] # list of (half_max, left_x, right_x) for each peak
     fwhm_texts: list[str] = [] # infobox contents
@@ -63,7 +64,7 @@ def find_fwhm(
     return (fwhm_lines, fwhm_texts)
 
 def scale_interferogram(baseline: float, peaks: list[Peak], path_delay: IndependentVariable, sample: DependentVariable, interferogram: DependentVariable) -> DependentVariable:
-    """Scale the interferogram to have the same maximum as the sample"""
+    """Scale the interferogram to have the same maximum as the sample."""
     scaled_interferogram = interferogram.copy()
 
     for _, pos, _ in peaks:

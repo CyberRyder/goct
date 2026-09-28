@@ -2,10 +2,9 @@ from math import pi
 
 import matplotlib.pyplot as plt
 import numpy as np
-import tomllib
 
 from analysis import find_fwhm, find_visibility, scale_interferogram
-from custom import FWHM, IndependentVariable
+from custom import FWHM, DependentVariable, IndependentVariable
 from models import (
     monochromatic_grover,
     monochromatic_standard,
@@ -13,21 +12,23 @@ from models import (
     quantum_standard,
 )
 from peaks import Peak, build_sample, new_peaks
+from utils import ExperimentConfig, load_config
 
 
-def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float):
+def plot_interferogram(cfg: ExperimentConfig, peaks: list[Peak], time_limit: float, y_limit: float):
+    """Simulate an OCT scan, generating a graph relating path delay to intensity or coincidence according to the sample configured."""
     y_axis: str = "intensity"
 
     # TODO: write validator
-    oct_type: str = cfg['graphing']['oct_type']
-    grover: bool = cfg['graphing']['grover']
+    oct_type: str = cfg.graphing.oct_type
+    grover: bool = cfg.graphing.grover
 
-    sample_length: float = cfg['sample']['length'] # meters, or None if omitted
-    refractive_index: float = cfg['sample']['refractive_index']
-    sample_shape: str = cfg['sample']['shape']
+    sample_length: float = cfg.sample.length # meters, or None if omitted
+    refractive_index: float = cfg.sample.refractive_index
+    sample_shape: str = cfg.sample.shape
 
-    central_wavelength: float = cfg['laser']['central_wavelength'] # micrometers
-    spectral_width: float = cfg['laser']['spectral_width'] # extend about 100nm for broadband light source
+    central_wavelength: float = cfg.laser.central_wavelength # micrometers
+    spectral_width: float = cfg.laser.spectral_width # extend about 100nm for broadband light source
 
     # facts
     speed_of_light: int = 299792458 # meters / second
@@ -47,8 +48,10 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
             intensity = monochromatic_standard(peaks, sample_shape, path_delay, wavenumber)
 
             plt.plot(path_delay, intensity, label='Intensity')
-            fwhms.append(FWHM(*find_fwhm(0.25, peaks, path_delay, intensity)))
-            visibility_texts.append(find_visibility(peaks, path_delay, intensity))
+
+            baseline = 0.25
+            fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, intensity)
+
         case 'nonmonochromatic', False:
             pass
 
@@ -57,23 +60,26 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
             y_axis = "norm. QOCT C(τ_q)"
 
             plt.plot(path_delay, coincidence_rate, label='Coincidence Rate')
-            fwhms.append(FWHM(*find_fwhm(1.0, peaks, path_delay, coincidence_rate, dips=True)))
-            visibility_texts.append(find_visibility(peaks, path_delay, coincidence_rate))
+
+            baseline = 1.0
+            fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, coincidence_rate)
+
         case 'monochromatic', True:
             intensity = monochromatic_grover(peaks, sample_shape, path_delay, speed_of_light, central_wavelength)
 
-            if cfg['graphing']['display_interferogram']:
+            if cfg.graphing.display_interferogram:
                 plt.plot(path_delay, intensity, label='Intensity')
-                fwhms.append(FWHM(*find_fwhm(0, peaks, path_delay, intensity)))
-                visibility_texts.append(find_visibility(peaks, path_delay, intensity))
 
-            if cfg['graphing']['display_scaled_interferogram']:
+                baseline = 0.0
+                fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, intensity)
+
+            if cfg.graphing.display_scaled_interferogram:
                 sample = build_sample(peaks, sample_shape, path_delay)
                 scaled_interferogram = scale_interferogram(0, peaks, path_delay, sample, intensity)
                 plt.plot(path_delay, scaled_interferogram, label='Scaled Intensity')
 
-                fwhms.append(FWHM(*find_fwhm(0, peaks, path_delay, scaled_interferogram)))
-                visibility_texts.append(find_visibility(peaks, path_delay, scaled_interferogram))
+                baseline = 0.0
+                fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, scaled_interferogram)
 
         case 'nonmonochromatic', True:
             pass
@@ -82,29 +88,14 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
             interferogram = quantum_grover(peaks, sample_shape, path_delay, speed_of_light, central_wavelength)
 
             plt.plot(path_delay, interferogram, label='Coincidence Rate')
-            fwhms.append(FWHM(*find_fwhm(1.0, peaks, path_delay, interferogram, dips=True)))
-            visibility_texts.append(find_visibility(peaks, path_delay, interferogram))
+            baseline = 1.0
+            fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, interferogram)
 
     sample = build_sample(peaks, sample_shape, path_delay)
     plt.plot(path_delay, sample, label='Sample')
 
-    infobox_texts = []
-    # plot fwhm lines
-    print(len(fwhms))
-    print(fwhms)
-
-    for fwhm in fwhms:
-        infobox_texts += fwhm.texts
-
-        print(fwhm.texts)
-
-        for line in fwhm.lines:
-            half_max, left_x, right_x = line
-            plt.hlines(half_max, left_x, right_x, colors='red', linestyles='-', linewidth=2)
-
     # display infobox with FWHM and visibility
-    for texts in visibility_texts:
-        infobox_texts += texts
+    infobox_texts = build_infobox(fwhms, visibility_texts)
     if infobox_texts:
         plt.text(0.02, 0.98, '\n'.join(infobox_texts), transform=plt.gca().transAxes,
                 verticalalignment='top', fontsize=10, bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.8})
@@ -130,16 +121,54 @@ def plot_interferogram(cfg, peaks: list[Peak], time_limit: float, y_limit: float
 
 #peaks = ((1, 180), (1.4, 450))
 
-with open("config.toml", "rb") as f:
-    cfg = tomllib.load(f)
+def build_infobox(fwhms: list[FWHM], visibility_texts: list[list[str]]) -> list[str]:
+    # build infobox
+    infobox_texts: list[str] = []
 
-peaks = new_peaks(
-    cfg['sample']['entering_reflectance'],
-    cfg['sample']['entering_reflectance'],
-    cfg['sample']['entering_reflectance_narrowness'],
-    cfg['sample']['exiting_reflectance_narrowness'],
-    cfg['sample']['initial_depth'],
-    cfg['sample']['refractive_index'],
-    cfg['sample']['length'])
+    # plot fwhm lines
+    for fwhm in fwhms:
+        infobox_texts += fwhm.texts
 
-plot_interferogram(cfg, peaks, cfg['graphing']['time_limit'], cfg['graphing']['y_limit'])
+        print(fwhm.texts)
+
+        for line in fwhm.lines:
+            half_max, left_x, right_x = line
+            plt.hlines(half_max, left_x, right_x, colors='red', linestyles='-', linewidth=2)
+
+    for texts in visibility_texts:
+        infobox_texts += texts
+
+    return infobox_texts
+
+def update_infobox(
+    fwhms: list[FWHM],
+    visibility_texts: list[list[str]],
+    baseline: float,
+    peaks: list[Peak],
+    path_delay: IndependentVariable,
+    interferogram: DependentVariable) -> tuple[list[FWHM], list[list[str]]]:
+
+    res = []
+    for fwhm in fwhms: res.append(fwhm.texts)
+    print("fwhms before update", res)
+    fwhms.append(FWHM(*find_fwhm(baseline, peaks, path_delay, interferogram, dips=True)))
+    visibility_texts.append(find_visibility(peaks, path_delay, interferogram))
+    res = []
+    for fwhm in fwhms: res.append(fwhm.texts)
+    print("fwhms after update", res)
+
+    return fwhms, visibility_texts
+
+if __name__ == "__main__":
+    cfg: ExperimentConfig = load_config()
+
+    peaks = new_peaks(
+        cfg.sample.entering_reflectance,
+        cfg.sample.exiting_reflectance,
+        cfg.sample.entering_reflectance_narrowness,
+        cfg.sample.exiting_reflectance_narrowness,
+        cfg.sample.initial_depth,
+        cfg.sample.refractive_index,
+        cfg.sample.length)
+
+    plot_interferogram(cfg, peaks, cfg.graphing.time_limit, cfg.graphing.y_limit)
