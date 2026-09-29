@@ -9,7 +9,7 @@ time_limit = 2                # seconds
 y_limit = 1.5                   # unitless (?)
 display_interferogram = true
 display_scaled_interferogram = true
-scale_max = false
+scale_max = true
 display_sample = true
 
 [sample]

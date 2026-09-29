@@ -83,3 +83,6 @@ def scale_interferogram(scale_max: bool, baseline: float, peaks: list[Peak], pat
             scaled_interferogram[mask] = scaled_interferogram[mask] / i_max * s_max
 
     return scaled_interferogram
+
+def root_mean_square_distance(sample: DependentVariable, interferogram: DependentVariable) -> float:
+    return np.sum((sample-interferogram) ** 2) ** 0.5

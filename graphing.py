@@ -3,7 +3,7 @@ from math import pi
 import matplotlib.pyplot as plt
 import numpy as np
 
-from analysis import find_fwhm, find_visibility, scale_interferogram
+from analysis import find_fwhm, find_visibility, root_mean_square_distance, scale_interferogram
 from custom import FWHM, DependentVariable, IndependentVariable
 from models import (
     monochromatic_grover,
@@ -42,6 +42,9 @@ def plot_interferogram(cfg: ExperimentConfig, peaks: list[Peak], time_limit: flo
 
     fwhms: list[FWHM] = []
     visibility_texts: list[list[str]] = []
+    rmsd: float = -1
+
+    sample = build_sample(peaks, sample_shape, path_delay)
 
     match oct_type, grover:
         case 'monochromatic', False:
@@ -50,7 +53,7 @@ def plot_interferogram(cfg: ExperimentConfig, peaks: list[Peak], time_limit: flo
             plt.plot(path_delay, intensity, label='Intensity')
 
             baseline = 0.25
-            fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, intensity)
+            fwhms, visibility_texts, rmsd = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, sample, intensity)
 
         case 'nonmonochromatic', False:
             pass
@@ -62,7 +65,7 @@ def plot_interferogram(cfg: ExperimentConfig, peaks: list[Peak], time_limit: flo
             plt.plot(path_delay, coincidence_rate, label='Coincidence Rate')
 
             baseline = 1.0
-            fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, coincidence_rate)
+            fwhms, visibility_texts, rmsd = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, sample, coincidence_rate)
 
         case 'monochromatic', True:
             intensity = monochromatic_grover(peaks, sample_shape, path_delay, speed_of_light, central_wavelength)
@@ -71,14 +74,14 @@ def plot_interferogram(cfg: ExperimentConfig, peaks: list[Peak], time_limit: flo
             if cfg.graphing.display_interferogram:
                 plt.plot(path_delay, intensity, label='Intensity')
 
-                fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, intensity)
+                fwhms, visibility_texts, rmsd = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, sample, intensity)
 
             if cfg.graphing.display_scaled_interferogram:
                 sample = build_sample(peaks, sample_shape, path_delay)
                 scaled_interferogram = scale_interferogram(cfg.graphing.scale_max, baseline, peaks, path_delay, sample, intensity)
                 plt.plot(path_delay, scaled_interferogram, label='Scaled Intensity')
 
-                fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, scaled_interferogram)
+                fwhms, visibility_texts, rmsd = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, sample, scaled_interferogram)
 
         case 'nonmonochromatic', True:
             pass
@@ -88,14 +91,13 @@ def plot_interferogram(cfg: ExperimentConfig, peaks: list[Peak], time_limit: flo
 
             plt.plot(path_delay, interferogram, label='Coincidence Rate')
             baseline = 1.0
-            fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, interferogram)
+            fwhms, visibility_texts, rmsd = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, sample, interferogram)
 
     if cfg.graphing.display_sample:
-        sample = build_sample(peaks, sample_shape, path_delay)
         plt.plot(path_delay, sample, label='Sample')
 
     # display infobox with FWHM and visibility
-    infobox_texts = build_infobox(fwhms, visibility_texts)
+    infobox_texts = build_infobox(fwhms, visibility_texts, rmsd)
     if infobox_texts:
         plt.text(0.02, 0.98, '\n'.join(infobox_texts), transform=plt.gca().transAxes,
                 verticalalignment='top', fontsize=10, bbox={'boxstyle': 'round', 'facecolor': 'white', 'alpha': 0.8})
@@ -121,7 +123,7 @@ def plot_interferogram(cfg: ExperimentConfig, peaks: list[Peak], time_limit: flo
 
 #peaks = ((1, 180), (1.4, 450))
 
-def build_infobox(fwhms: list[FWHM], visibility_texts: list[list[str]]) -> list[str]:
+def build_infobox(fwhms: list[FWHM], visibility_texts: list[list[str]], rmsd: float) -> list[str]:
     # build infobox
     infobox_texts: list[str] = []
 
@@ -138,6 +140,8 @@ def build_infobox(fwhms: list[FWHM], visibility_texts: list[list[str]]) -> list[
     for texts in visibility_texts:
         infobox_texts += texts
 
+    infobox_texts.append("RMSD: " + f"{rmsd:.7g}")
+
     return infobox_texts
 
 def update_infobox(
@@ -146,7 +150,8 @@ def update_infobox(
     baseline: float,
     peaks: list[Peak],
     path_delay: IndependentVariable,
-    interferogram: DependentVariable) -> tuple[list[FWHM], list[list[str]]]:
+    sample: DependentVariable,
+    interferogram: DependentVariable) -> tuple[list[FWHM], list[list[str]], float]:
 
     res = []
     for fwhm in fwhms: res.append(fwhm.texts)
@@ -157,7 +162,9 @@ def update_infobox(
     for fwhm in fwhms: res.append(fwhm.texts)
     print("fwhms after update", res)
 
-    return fwhms, visibility_texts
+    rmsd = root_mean_square_distance(sample, interferogram)
+
+    return fwhms, visibility_texts, rmsd
 
 if __name__ == "__main__":
     cfg: ExperimentConfig = load_config()
