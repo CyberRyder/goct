@@ -4,7 +4,9 @@ from custom import DependentVariable, FWHMLine, IndependentVariable
 from peaks import Peak
 
 
-def find_visibility(peaks: list[Peak], path_delay: IndependentVariable, intensity: DependentVariable) -> list[str]:
+def find_visibility(
+    peaks: list[Peak], path_delay: IndependentVariable, intensity: DependentVariable
+) -> list[str]:
     """Calculate visibility V = (I_max - I_min) / (I_max + I_min) for each peak region."""
     visibility_texts = []
 
@@ -23,19 +25,24 @@ def find_visibility(peaks: list[Peak], path_delay: IndependentVariable, intensit
 
     return visibility_texts
 
+
 def find_fwhm(
     baseline: float,
     peaks: list[Peak],
     path_delay: IndependentVariable,
     intensity: DependentVariable,
-    *, dips=False) -> tuple[list[FWHMLine], list[str]]:
+    *,
+    dips=False,
+) -> tuple[list[FWHMLine], list[str]]:
     """Generate co-ordinates of line displaying the full width at half-maximum for each peak region."""
 
-    fwhm_lines: list[FWHMLine] = [] # list of (half_max, left_x, right_x) for each peak
-    fwhm_texts: list[str] = [] # infobox contents
+    fwhm_lines: list[FWHMLine] = []  # list of (half_max, left_x, right_x) for each peak
+    fwhm_texts: list[str] = []  # infobox contents
 
     for _, pos, _ in peaks:
-        mask = np.abs(path_delay - pos) < 50 # Boolean array telling whether each point is near a peak
+        mask = (
+            np.abs(path_delay - pos) < 50
+        )  # Boolean array telling whether each point is near a peak
         if not np.any(mask):
             continue
 
@@ -63,7 +70,15 @@ def find_fwhm(
 
     return (fwhm_lines, fwhm_texts)
 
-def scale_interferogram(scale_max: bool, baseline: float, peaks: list[Peak], path_delay: IndependentVariable, sample: DependentVariable, interferogram: DependentVariable) -> DependentVariable:
+
+def scale_interferogram(
+    scale_max: bool,
+    baseline: float,
+    peaks: list[Peak],
+    path_delay: IndependentVariable,
+    sample: DependentVariable,
+    interferogram: DependentVariable,
+) -> DependentVariable:
     """Scale the interferogram to have the same maximum as the sample."""
     print("scale_interferogram called from", __file__, "baseline =", baseline)
     scaled_interferogram = interferogram.copy() - baseline
@@ -84,5 +99,8 @@ def scale_interferogram(scale_max: bool, baseline: float, peaks: list[Peak], pat
 
     return scaled_interferogram
 
-def root_mean_square_distance(sample: DependentVariable, interferogram: DependentVariable) -> float:
-    return np.sum((sample-interferogram) ** 2) ** 0.5
+
+def root_mean_square_distance(
+    sample: DependentVariable, interferogram: DependentVariable
+) -> float:
+    return np.sum((sample - interferogram) ** 2) ** 0.5
