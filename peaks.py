@@ -5,20 +5,31 @@ from custom import DependentVariable, IndependentVariable, SampleFunc
 type Peak = tuple[float, float, float]
 
 def delta_function(peaks: list[Peak]) -> SampleFunc:
-    """Takes (reflectance, depth) pairs and returns a sum of Gaussians."""
+    """Takes (reflectance, depth, narrowness) tuples and returns a sum of Gaussians."""
     def func(x: IndependentVariable) -> IndependentVariable:
         return sum(
-            (reflectance * np.exp(-((x - depth) ** 2) / narrowness) for reflectance, depth, narrowness in peaks),
+            (reflectance * np.exp(-((x - depth) ** 2) / narrowness)
+            for reflectance, depth, narrowness in peaks),
             np.zeros_like(x) # empty array as start value
         )
     return func
 
 def cornered_function(peaks: list[Peak]) -> SampleFunc:
-    """Takes (reflectance, depth) pairs and returns a sum of absolute values."""
+    """Takes (reflectance, depth, narrowness) tuples and returns a sum of absolute values."""
     def func(x: IndependentVariable) -> IndependentVariable:
         return sum(
             (np.maximum(0, reflectance * (1 - np.abs(x - depth) / narrowness))
-             for reflectance, depth, narrowness in peaks),
+            for reflectance, depth, narrowness in peaks),
+            np.zeros_like(x)
+        )
+    return func
+
+def square_wave(peaks: list[Peak]) -> SampleFunc:
+    """Takes (reflectance, depth, narrowness) tuples and returns a sum of square-wave peaks"""
+    def func(x: IndependentVariable) -> IndependentVariable:
+        return sum(
+            (np.maximum(0, reflectance * (np.abs(x - depth) <= (100/narrowness)))
+            for reflectance, depth, narrowness in peaks),
             np.zeros_like(x)
         )
     return func
@@ -45,6 +56,8 @@ def build_sample(peaks: list[Peak], sample_shape: str, path_delay: IndependentVa
             sample_func = delta_function(peaks)
         case "cornered":
             sample_func = cornered_function(peaks)
+        case "square":
+            sample_func = square_wave(peaks)
 
     sample = sample_func(path_delay)
     return sample

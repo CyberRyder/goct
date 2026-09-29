@@ -4,7 +4,7 @@
 
 [graphing]
 oct_type = "monochromatic"          # options: "monochromatic", "nonmonochromatic", "quantum"
-grover = true              # uses the beam splitter (standard) or the Grover coin
+grover = false              # uses the beam splitter (standard) or the Grover coin
 time_limit = 2                # seconds
 y_limit = 1                   # unitless (?)
 display_interferogram = true
@@ -18,7 +18,7 @@ entering_reflectance = 0.2    # percent of light
 entering_reflectance_narrowness = 10
 exiting_reflectance = 0.2     # percent of light
 exiting_reflectance_narrowness = 10
-shape = "cornered" # options: "gaussian", "cornered"
+shape = "square" # options: "gaussian", "cornered", "square"
 
 [laser]
 central_wavelength = 0.800    # micrometers

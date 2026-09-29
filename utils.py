@@ -22,7 +22,7 @@ class SampleConfig(BaseModel):
     entering_reflectance_narrowness: float = Field(gt=0)
     exiting_reflectance: float = Field(ge=0, le=1)
     exiting_reflectance_narrowness: float = Field(gt=0)
-    shape: Literal["gaussian", "cornered"]
+    shape: Literal["gaussian", "cornered", "square"]
 
 
 class LaserConfig(BaseModel):
