@@ -66,19 +66,18 @@ def plot_interferogram(cfg: ExperimentConfig, peaks: list[Peak], time_limit: flo
 
         case 'monochromatic', True:
             intensity = monochromatic_grover(peaks, sample_shape, path_delay, speed_of_light, central_wavelength)
+            baseline = 0.7
 
             if cfg.graphing.display_interferogram:
                 plt.plot(path_delay, intensity, label='Intensity')
 
-                baseline = 0.0
                 fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, intensity)
 
             if cfg.graphing.display_scaled_interferogram:
                 sample = build_sample(peaks, sample_shape, path_delay)
-                scaled_interferogram = scale_interferogram(0, peaks, path_delay, sample, intensity)
+                scaled_interferogram = scale_interferogram(cfg.graphing.scale_max, baseline, peaks, path_delay, sample, intensity)
                 plt.plot(path_delay, scaled_interferogram, label='Scaled Intensity')
 
-                baseline = 0.0
                 fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, scaled_interferogram)
 
         case 'nonmonochromatic', True:
@@ -91,8 +90,9 @@ def plot_interferogram(cfg: ExperimentConfig, peaks: list[Peak], time_limit: flo
             baseline = 1.0
             fwhms, visibility_texts = update_infobox(fwhms, visibility_texts, baseline, peaks, path_delay, interferogram)
 
-    sample = build_sample(peaks, sample_shape, path_delay)
-    plt.plot(path_delay, sample, label='Sample')
+    if cfg.graphing.display_sample:
+        sample = build_sample(peaks, sample_shape, path_delay)
+        plt.plot(path_delay, sample, label='Sample')
 
     # display infobox with FWHM and visibility
     infobox_texts = build_infobox(fwhms, visibility_texts)

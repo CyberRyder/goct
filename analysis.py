@@ -63,21 +63,23 @@ def find_fwhm(
 
     return (fwhm_lines, fwhm_texts)
 
-def scale_interferogram(baseline: float, peaks: list[Peak], path_delay: IndependentVariable, sample: DependentVariable, interferogram: DependentVariable) -> DependentVariable:
+def scale_interferogram(scale_max: bool, baseline: float, peaks: list[Peak], path_delay: IndependentVariable, sample: DependentVariable, interferogram: DependentVariable) -> DependentVariable:
     """Scale the interferogram to have the same maximum as the sample."""
-    scaled_interferogram = interferogram.copy()
+    print("scale_interferogram called from", __file__, "baseline =", baseline)
+    scaled_interferogram = interferogram.copy() - baseline
 
-    for _, pos, _ in peaks:
-        mask = np.abs(path_delay - pos) < 50
-        if not np.any(mask):
-            continue
+    if scale_max:
+        for _, pos, _ in peaks:
+            mask = np.abs(path_delay - pos) < 50
+            if not np.any(mask):
+                continue
 
-        sample_intensity = sample[mask]
-        s_max = np.max(sample_intensity)
+            sample_intensity = sample[mask]
+            s_max = np.max(sample_intensity)
 
-        interferogram_intensity = interferogram[mask]
-        i_max = np.max(interferogram_intensity)
+            interferogram_intensity = scaled_interferogram[mask]
+            i_max = np.max(interferogram_intensity)
 
-        scaled_interferogram[mask] = interferogram[mask] / i_max * s_max - baseline
+            scaled_interferogram[mask] = scaled_interferogram[mask] / i_max * s_max
 
     return scaled_interferogram

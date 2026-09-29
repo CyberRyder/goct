@@ -83,8 +83,10 @@ def monochromatic_grover(
 
     reference_arm = np.exp(1j * frequency * tau)
     sample = build_sample(peaks, sample_shape, path_delay)
+    r_positive = reference_arm + sample
+    r_negative = reference_arm - sample
 
-    exiting_state = (1 + reference_arm - sample) * (1 - reference_arm + sample) / (1 + reference_arm + sample)
+    exiting_state = 0.5 * (1 + r_positive - (r_negative) ** 2 / (2 + r_positive))
     intensity: DependentVariable = np.abs(exiting_state) ** 2
 
     return intensity
@@ -103,6 +105,6 @@ def quantum_grover(
     reference_arm = np.exp(1j * frequency * tau)
     sample = build_sample(peaks, sample_shape, path_delay)
 
-    coincidence_rate: DependentVariable = reference_arm + sample + ((reference_arm - sample) ** 2 / (reference_arm + sample)) * (4 / (2 - reference_arm - sample) * (2 + reference_arm + sample))
+    coincidence_rate: DependentVariable = reference_arm + sample + (((reference_arm - sample) ** 2) / (reference_arm + sample)) * (4 / ((2 - reference_arm - sample) * (2 + reference_arm + sample)))
 
     return coincidence_rate

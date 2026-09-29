@@ -12,6 +12,8 @@ class GraphingConfig(BaseModel):
     y_limit: float = Field(gt=0)             # unitless
     display_interferogram: bool
     display_scaled_interferogram: bool
+    scale_max: bool
+    display_sample: bool
 
 
 class SampleConfig(BaseModel):

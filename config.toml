@@ -4,11 +4,13 @@
 
 [graphing]
 oct_type = "monochromatic"          # options: "monochromatic", "nonmonochromatic", "quantum"
-grover = false              # uses the beam splitter (standard) or the Grover coin
+grover = true              # uses the beam splitter (standard) or the Grover coin
 time_limit = 2                # seconds
-y_limit = 1                   # unitless (?)
+y_limit = 1.5                   # unitless (?)
 display_interferogram = true
 display_scaled_interferogram = true
+scale_max = false
+display_sample = true
 
 [sample]
 length = 90e-6         # meters
@@ -18,7 +20,7 @@ entering_reflectance = 0.2    # percent of light
 entering_reflectance_narrowness = 10
 exiting_reflectance = 0.2     # percent of light
 exiting_reflectance_narrowness = 10
-shape = "square" # options: "gaussian", "cornered", "square"
+shape = "gaussian" # options: "gaussian", "cornered", "square"
 
 [laser]
 central_wavelength = 0.800    # micrometers
