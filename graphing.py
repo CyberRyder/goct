@@ -41,9 +41,11 @@ def scan(
 ) -> tuple[
     list[FWHM], list[list[str]], float, DependentVariable, DependentVariable, str
 ]:
+    """Wrapper that bridges the experimental config and physical facts with model implementations to produce an interferogram"""
+
     fwhms: list[FWHM] = []
     visibility_texts: list[list[str]] = []
-    rmsd: float = -1
+    rmsd: float = -1  # once calculated, rmsd can never be negative
 
     interferogram: DependentVariable = np.zeros(0, dtype=np.float64)
     scaled_interferogram: DependentVariable = np.zeros(0, dtype=np.float64)
@@ -121,11 +123,13 @@ def scan(
 def plot_interferogram(
     cfg: ExperimentConfig, peaks: list[Peak], time_limit: float, y_limit: float
 ):
-    """Simulate an OCT scan, generating a graph relating path delay to intensity or coincidence according to the sample configured."""
+    """Simulate an OCT scan, generating a graph relating path delay to intensity or coincidence according to the sample and scanning type configured."""
+
+    # experimental configuration
     oct_type: str = cfg.graphing.oct_type
     grover: bool = cfg.graphing.grover
 
-    sample_length: float = cfg.sample.length  # meters, or None if omitted
+    sample_length: float = cfg.sample.length  # meters
     refractive_index: float = cfg.sample.refractive_index
     sample_shape: str = cfg.sample.shape
 
@@ -146,10 +150,6 @@ def plot_interferogram(
 
     # initialization
     plt.figure(figsize=(14, 6))
-
-    fwhms: list[FWHM] = []
-    visibility_texts: list[list[str]] = []
-    rmsd: float = -1
 
     sample = build_sample(peaks, sample_shape, path_delay)
 
@@ -217,6 +217,8 @@ def plot_interferogram(
 def build_infobox(
     fwhms: list[FWHM], visibility_texts: list[list[str]], rmsd: float
 ) -> list[str]:
+    """This function constructs the infobox for display according to the data passed to it."""
+
     # build infobox
     infobox_texts: list[str] = []
 
@@ -249,19 +251,13 @@ def update_infobox(
     sample: DependentVariable,
     interferogram: DependentVariable,
 ) -> tuple[list[FWHM], list[list[str]], float]:
+    """When a new interferogram is calculated, this function is called
+    to update the infobox to contain the analysis of said interferogram."""
 
-    res = []
-    for fwhm in fwhms:
-        res.append(fwhm.texts)
-    print("fwhms before update", res)
     fwhms.append(
         FWHM(*find_fwhm(baseline, peaks, path_delay, interferogram, dips=True))
     )
     visibility_texts.append(find_visibility(peaks, path_delay, interferogram))
-    res = []
-    for fwhm in fwhms:
-        res.append(fwhm.texts)
-    print("fwhms after update", res)
 
     rmsd = root_mean_square_distance(sample, interferogram)
 

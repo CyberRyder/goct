@@ -13,6 +13,7 @@ def find_visibility(
     peaks: list[Peak], path_delay: IndependentVariable, intensity: DependentVariable
 ) -> list[str]:
     """Calculate visibility V = (I_max - I_min) / (I_max + I_min) for each peak region."""
+
     visibility_texts = []
 
     for _, pos, _ in peaks:
@@ -88,6 +89,7 @@ def scale_interferogram(
     Translates the interferogram vertically to account for noise and
     according to the `scale_max` flag matches the interferogram's maximums
     at each peak to match the sample's."""
+
     scaled_interferogram = interferogram.copy() - baseline
 
     if scale_max:
@@ -111,4 +113,5 @@ def root_mean_square_distance(
     sample: DependentVariable, scaled_interferogram: DependentVariable
 ) -> float:
     """Computes the root mean square distance between a sample and its corresponding interferogram"""
+
     return np.sum((sample - scaled_interferogram) ** 2) ** 0.5
