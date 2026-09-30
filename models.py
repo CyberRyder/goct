@@ -23,6 +23,7 @@ def monochromatic_standard(
     return intensity
 
 
+# TODO: need to revisit this and make sure it is functioning properly
 def quantum_standard(
     peaks: list[Peak],
     path_delay: IndependentVariable,
@@ -48,10 +49,8 @@ def quantum_standard(
 
     [r1, z1, _], [r2, z2, _] = peaks
 
-    # graph this for reference, but not actually used in calculations
+    # sample for reference, but not actually used in calculations
     # _sample_func = lambda frequency: r1 + r2 * np.exp(1j * 2 * frequency * refractive_index * sample_length / speed_of_light)
-    # TODO: fix this
-    # _sample = _sample_func(path_delay)
 
     tau_q = path_delay * 1e-6 / speed_of_light  # seconds
     tau_z1 = (

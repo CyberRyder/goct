@@ -32,7 +32,6 @@ def plot_interferogram(
     """Simulate an OCT scan, generating a graph relating path delay to intensity or coincidence according to the sample configured."""
     y_axis: str = "intensity"
 
-    # TODO: write validator
     oct_type: str = cfg.graphing.oct_type
     grover: bool = cfg.graphing.grover
 
@@ -55,6 +54,7 @@ def plot_interferogram(
     time_shift: IndependentVariable = np.linspace(0, time_limit, 10000)  # picoseconds
     path_delay: IndependentVariable = speed_of_light * time_shift * 1e-6  # micrometers
 
+    # initialization
     plt.figure(figsize=(14, 6))
 
     fwhms: list[FWHM] = []
@@ -71,6 +71,7 @@ def plot_interferogram(
 
             plt.plot(path_delay, intensity, label="Intensity")
 
+            # TODO: derive baselines from analyzing graph rather than hardcoding values
             baseline = 0.25
             fwhms, visibility_texts, rmsd = update_infobox(
                 fwhms, visibility_texts, baseline, peaks, path_delay, sample, intensity
@@ -190,7 +191,6 @@ def plot_interferogram(
             terms.append(rf"{reflectance}\delta(z - {pos})")
     label = " + ".join(terms)
 
-    # TODO: fix this title for quantum
     plt.title(f"Graph of {y_axis} vs. path delay with sample $r(z) = {label}$")
     plt.xlabel(r"Path delay $c \tau$ ($\mu$m)")
     plt.ylabel(f"{y_axis}")

@@ -80,3 +80,9 @@ $r_{1}$ and $r_{2}$ are the reflectance points
 $n$ is the refractive index
 $L$ is the sample thickness
 $c$ is the speed of light
+
+Below are the equations governing Grover OCT:
+
+Monochromatic case:
+
+Quantum case:
