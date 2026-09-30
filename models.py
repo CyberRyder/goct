@@ -6,16 +6,14 @@ A more complete explanation of the equations used can be found in README.md.
 import numpy as np
 
 from custom import DependentVariable, IndependentVariable
-from peaks import Peak, build_sample
+from peaks import Peak
 
 
 def monochromatic_standard(
-    peaks: list[Peak],
-    sample_shape: str,
     path_delay: IndependentVariable,
+    sample: DependentVariable,
     wavenumber: float,
 ) -> DependentVariable:
-    sample = build_sample(peaks, sample_shape, path_delay)
     intensity: DependentVariable = (
         1 / 4 * (1 + np.abs(sample) ** 2 + 2 * sample * np.cos(wavenumber * path_delay))
     )
@@ -99,9 +97,8 @@ def quantum_standard(
 
 
 def monochromatic_grover(
-    peaks: list[Peak],
-    sample_shape: str,
     path_delay: IndependentVariable,
+    sample: DependentVariable,
     speed_of_light: float,
     central_wavelength: float,
 ) -> DependentVariable:
@@ -111,7 +108,6 @@ def monochromatic_grover(
     tau = path_delay * 1e-6 / speed_of_light
 
     reference_arm = np.exp(1j * frequency * tau)
-    sample = build_sample(peaks, sample_shape, path_delay)
     r_positive = reference_arm + sample
     r_negative = reference_arm - sample
 
@@ -123,9 +119,8 @@ def monochromatic_grover(
 
 # note: currently broken
 def quantum_grover(
-    peaks: list[Peak],
-    sample_shape: str,
     path_delay: IndependentVariable,
+    sample: DependentVariable,
     speed_of_light: float,
     central_wavelength: float,
 ) -> DependentVariable:
@@ -133,7 +128,6 @@ def quantum_grover(
     tau = path_delay * 1e-6 / speed_of_light
 
     reference_arm = np.exp(1j * frequency * tau)
-    sample = build_sample(peaks, sample_shape, path_delay)
 
     coincidence_rate: DependentVariable = (
         reference_arm
