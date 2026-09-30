@@ -1,3 +1,9 @@
+"""
+This file contains the main logic creating the interferogram graphs, pulling in functions from the rest of the codebase.
+
+It pulls in the experimental configuration and plots and analyzes accordingly.
+"""
+
 from math import pi
 
 import matplotlib.pyplot as plt

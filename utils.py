@@ -1,3 +1,8 @@
+"""
+This file contains the config class and a validator that ensures the
+experimental configuration is physically valid and will not cause errors.
+"""
+
 from pathlib import Path
 from typing import Literal
 

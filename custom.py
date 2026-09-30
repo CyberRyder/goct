@@ -1,3 +1,7 @@
+"""
+This file contains the custom types and classes used throughout the codebase.
+"""
+
 from collections.abc import Callable
 
 from numpy._core.numerictypes import float64

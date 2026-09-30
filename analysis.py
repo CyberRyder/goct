@@ -1,3 +1,8 @@
+"""
+This file contains the functions used on computed interferograms to analyze and transform them
+in order to determine how effective they were at reconstructing the sample
+"""
+
 import numpy as np
 
 from custom import DependentVariable, FWHMLine, IndependentVariable
@@ -79,8 +84,10 @@ def scale_interferogram(
     sample: DependentVariable,
     interferogram: DependentVariable,
 ) -> DependentVariable:
-    """Scale the interferogram to have the same maximum as the sample."""
-    print("scale_interferogram called from", __file__, "baseline =", baseline)
+    """Scale the interferogram to be more readily comparible to the sample.
+    Translates the interferogram vertically to account for noise and
+    according to the `scale_max` flag matches the interferogram's maximums
+    at each peak to match the sample's."""
     scaled_interferogram = interferogram.copy() - baseline
 
     if scale_max:
@@ -101,6 +108,7 @@ def scale_interferogram(
 
 
 def root_mean_square_distance(
-    sample: DependentVariable, interferogram: DependentVariable
+    sample: DependentVariable, scaled_interferogram: DependentVariable
 ) -> float:
-    return np.sum((sample - interferogram) ** 2) ** 0.5
+    """Computes the root mean square distance between a sample and its corresponding interferogram"""
+    return np.sum((sample - scaled_interferogram) ** 2) ** 0.5

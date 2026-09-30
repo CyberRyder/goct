@@ -1,3 +1,8 @@
+"""
+This file contains the helper functions for constructing samples
+according to the experimental configuration (specified in config.toml)
+"""
+
 import numpy as np
 
 from custom import DependentVariable, IndependentVariable, SampleFunc
@@ -8,7 +13,7 @@ type Peak = tuple[float, float, float]
 def delta_function(peaks: list[Peak]) -> SampleFunc:
     """Takes (reflectance, depth, narrowness) tuples and returns a sum of Gaussians."""
 
-    def func(x: IndependentVariable) -> IndependentVariable:
+    def func(x: IndependentVariable) -> DependentVariable:
         return sum(
             (
                 reflectance * np.exp(-((x - depth) ** 2) / narrowness)
@@ -23,7 +28,7 @@ def delta_function(peaks: list[Peak]) -> SampleFunc:
 def cornered_function(peaks: list[Peak]) -> SampleFunc:
     """Takes (reflectance, depth, narrowness) tuples and returns a sum of absolute values."""
 
-    def func(x: IndependentVariable) -> IndependentVariable:
+    def func(x: IndependentVariable) -> DependentVariable:
         return sum(
             (
                 np.maximum(0, reflectance * (1 - np.abs(x - depth) / narrowness))
@@ -38,7 +43,7 @@ def cornered_function(peaks: list[Peak]) -> SampleFunc:
 def square_wave(peaks: list[Peak]) -> SampleFunc:
     """Takes (reflectance, depth, narrowness) tuples and returns a sum of square-wave peaks"""
 
-    def func(x: IndependentVariable) -> IndependentVariable:
+    def func(x: IndependentVariable) -> DependentVariable:
         return sum(
             (
                 np.maximum(0, reflectance * (np.abs(x - depth) <= (100 / narrowness)))

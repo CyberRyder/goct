@@ -1,4 +1,4 @@
-This program graphs intensity at detector versus the length of the reference arm.
+Below are the equations used to create interferograms.
 
 Equations governing standard OCT:
 
@@ -17,7 +17,7 @@ $\omega$ is the frequency of the light
 $\tau$ is the time shift of the reference arm
 
 
-Nonmonochromatic case:
+Nonmonochromatic case (note: this equation is currently unused):
 $I = \frac{1}{4} \left(L_{0} + L_{1} * 2 * Re(e^{-i * w_0 * \tau})\right)$
 
 where

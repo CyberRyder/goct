@@ -1,3 +1,8 @@
+"""
+This file contains the code for generating the interferograms of each OCT type.
+A more complete explanation of the equations used can be found in README.md.
+"""
+
 import numpy as np
 
 from custom import DependentVariable, IndependentVariable
@@ -117,7 +122,7 @@ def monochromatic_grover(
     return intensity
 
 
-# currently broken
+# note: currently broken
 def quantum_grover(
     peaks: list[Peak],
     sample_shape: str,
